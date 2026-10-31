@@ -111,7 +111,10 @@ def anular_pago(*, pago, motivo, usuario):
     if not motivo or len(motivo.strip()) < 5:
         raise ValidationError("Indique un motivo de anulacion de al menos 5 caracteres.")
 
-    cuotas = list(CuotaMensual.objects.select_for_update().filter(aplicaciones__pago=pago).distinct())
+    cuota_ids = pago.aplicaciones.values_list("cuota_mensual_id", flat=True)
+    cuotas = list(
+        CuotaMensual.objects.select_for_update().filter(pk__in=cuota_ids)
+    )
     pago.anulado = True
     pago.motivo_anulacion = motivo.strip()
     pago.usuario_que_anula = usuario
