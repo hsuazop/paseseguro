@@ -1,0 +1,33 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#075aa6">
+  <title>{% block title %}Mi residencia{% endblock %} · Pase Seguro</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{% static 'core/app.css' %}" rel="stylesheet">
+</head>
+<body class="resident-body">
+<header class="resident-topbar">
+  <a class="resident-top-action" href="{% url 'configurar_perfil' casa.id %}" aria-label="Configuración"><i class="bi bi-gear-fill"></i></a>
+  <a class="resident-brand" href="{% url 'portal_residente' casa.id %}"><i class="bi bi-shield-check"></i><span>Pase Seguro</span></a>
+  <a class="resident-sos" href="{% url 'alerta_sos' casa.id %}"><i class="bi bi-exclamation-triangle-fill"></i> SOS</a>
+</header>
+<main class="resident-shell">
+  {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show resident-alert" role="alert">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}
+  {% block content %}{% endblock %}
+</main>
+<nav class="resident-bottom-nav no-print" aria-label="Navegación principal">
+  <a href="{% url 'portal_residente' casa.id %}"><i class="bi bi-house-door-fill"></i><span>Inicio</span></a>
+  <a href="{% url 'mi_cuenta_casa' casa.id %}"><i class="bi bi-wallet2"></i><span>Cuenta</span></a>
+  <a class="qr-main" href="{% url 'qr_residente' casa.id %}"><i class="bi bi-qr-code-scan"></i><span>Mi QR</span></a>
+  <a href="{% url 'visitas_lista' casa.id %}"><i class="bi bi-people-fill"></i><span>Visitas</span></a>
+  <a href="{% url 'configurar_perfil' casa.id %}"><i class="bi bi-person-fill-gear"></i><span>Perfil</span></a>
+</nav>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

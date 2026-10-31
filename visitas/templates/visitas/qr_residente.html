@@ -1,0 +1,7 @@
+{% extends 'portal/base_portal.html' %}
+{% block title %}Mi código QR{% endblock %}
+{% block content %}
+<div class="resident-page-head"><a href="{% url 'portal_residente' casa.id %}"><i class="bi bi-arrow-left"></i></a><div><h1>Mi código QR</h1><p>Acceso personal · Casa {{ casa.codigo }}</p></div></div>
+<div class="resident-card text-center"><div id="residentQr" class="qr-box qr-loading"><div class="spinner-border text-primary" role="status"></div></div><div class="qr-timer"><i class="bi bi-arrow-repeat"></i> Se actualiza en <strong id="seconds">30</strong> s</div><div class="alert alert-info text-start small mt-3 mb-0"><i class="bi bi-shield-lock-fill me-2"></i>Este código es personal y cambia cada 30 segundos. Muéstralo únicamente al personal de acceso.</div></div>
+{% endblock %}
+{% block scripts %}<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script><script>const endpoint='{% url "token_qr_residente" casa.id %}';let seconds=30;async function refreshQr(){const response=await fetch(endpoint,{headers:{'X-Requested-With':'XMLHttpRequest'}});const data=await response.json();const target=document.getElementById('residentQr');target.innerHTML='';target.classList.remove('qr-loading');new QRCode(target,{text:data.url,width:240,height:240,colorDark:'#103a5f'});seconds=data.vigencia_segundos;}refreshQr();setInterval(()=>{seconds-=1;document.getElementById('seconds').textContent=Math.max(seconds,0);if(seconds<=0)refreshQr();},1000);</script>{% endblock %}

@@ -1,0 +1,12 @@
+{% extends 'portal/base_portal.html' %}{% load app_tags %}
+{% block title %}Estado de cuenta{% endblock %}
+{% block content %}
+<div class="resident-page-head"><a href="{% url 'portal_residente' casa.id %}"><i class="bi bi-arrow-left"></i></a><div><h1>Estado de cuenta</h1><p>Casa {{ casa.codigo }} · {{ casa.colonia.nombre }}</p></div></div>
+<div class="account-total"><span>Saldo pendiente total</span><strong>{{ saldo_total|moneda }}</strong><small>Pagado en {{ anio }}: {{ pagado_anio|moneda }}</small></div>
+<div class="account-actions"><a href="{% url 'comprobante_enviar' casa.id %}"><i class="bi bi-cloud-arrow-up"></i> Enviar comprobante</a><a href="{% url 'cuenta_pago_residente' casa.id %}"><i class="bi bi-bank"></i> Cuenta para pagos</a></div>
+<form method="get" class="year-selector"><label for="anio">Año</label><select class="form-select" id="anio" name="anio" onchange="this.form.submit()">{% for item in anios %}<option value="{{ item }}" {% if item == anio %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></form>
+<div class="statement-list">
+{% for item in cuotas %}<article class="statement-item"><div class="statement-month"><strong>{{ item.nombre }}</strong><span>{{ anio }}</span></div>{% if item.cuota %}<div class="statement-money"><span>Cuota <b>{{ item.cuota.monto_original|moneda }}</b></span><span>Pagado <b>{{ item.cuota.monto_pagado|moneda }}</b></span>{% if item.cuota.saldo %}<span>Saldo <b>{{ item.cuota.saldo|moneda }}</b></span>{% endif %}</div><span class="status-pill status-{{ item.cuota.estado|lower }}">{{ item.cuota.get_estado_display }}</span>{% else %}<div class="statement-money text-muted">Cuota aún no generada</div><span class="status-pill status-none">Sin cuota</span>{% endif %}</article>{% endfor %}
+</div>
+{% if pagos %}<section class="resident-section mt-4"><div class="section-heading"><h2>Recibos recientes</h2></div>{% for pago in pagos %}<a class="receipt-row" href="{% url 'recibo_detalle' pago.id %}"><span><i class="bi bi-receipt"></i></span><div><strong>{{ pago.numero_recibo }}</strong><small>{{ pago.fecha_pago|date:'d/m/Y' }}</small></div><b>{{ pago.monto_total|moneda }}</b><i class="bi bi-chevron-right"></i></a>{% endfor %}</section>{% endif %}
+{% endblock %}

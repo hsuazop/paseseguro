@@ -1,0 +1,6 @@
+{% extends 'portal/base_portal.html' %}
+{% block title %}Registrar visita{% endblock %}
+{% block content %}
+<div class="resident-page-head"><a href="{% url 'visitas_lista' casa.id %}"><i class="bi bi-arrow-left"></i></a><div><h1>Registrar visita</h1><p>Genera un acceso seguro</p></div></div>
+<div class="resident-card"><form method="post" novalidate>{% csrf_token %}{% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}{% for field in form %}<div class="mb-3"><label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>{{ field }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}{% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}</div>{% endfor %}<button class="btn btn-primary btn-lg w-100" type="submit"><i class="bi bi-qr-code me-2"></i>Generar acceso</button></form></div>
+{% endblock %}

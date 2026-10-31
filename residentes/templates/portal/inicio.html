@@ -1,0 +1,24 @@
+{% extends 'portal/base_portal.html' %}{% load app_tags %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<section class="resident-welcome"><div class="community-mark"><i class="bi bi-buildings-fill"></i></div><div><p class="welcome-kicker">Bienvenido</p><h1>{{ responsable.nombre_completo }}</h1><p>{{ casa.colonia.nombre }} · Casa {{ casa.codigo }}</p></div></section>
+{% if saldo_total > 0 %}<a class="debt-banner" href="{% url 'mi_cuenta_casa' casa.id %}"><span><i class="bi bi-exclamation-circle-fill"></i> Tienes un saldo pendiente</span><strong>{{ saldo_total|moneda }}</strong></a>{% else %}<div class="debt-banner debt-ok"><span><i class="bi bi-check-circle-fill"></i> Tu cuenta está al día</span></div>{% endif %}
+<div class="resident-stats"><div><span>Saldo pendiente</span><strong>{{ saldo_total|moneda }}</strong></div><div><span>Pagado este año</span><strong>{{ pagado_anio|moneda }}</strong></div></div>
+<section class="resident-menu" aria-label="Servicios">
+  <a href="{% url 'mi_cuenta_casa' casa.id %}"><span class="menu-icon blue"><i class="bi bi-receipt-cutoff"></i></span><span>Estado de cuenta</span></a>
+  <a href="{% url 'visita_crear' casa.id %}"><span class="menu-icon cyan"><i class="bi bi-person-plus-fill"></i></span><span>Registrar visita</span></a>
+  <a href="{% url 'visitas_lista' casa.id %}"><span class="menu-icon navy"><i class="bi bi-people-fill"></i></span><span>Mis visitas</span>{% if visitas_activas %}<b>{{ visitas_activas }}</b>{% endif %}</a>
+  <a href="{% url 'comprobante_enviar' casa.id %}"><span class="menu-icon green"><i class="bi bi-cloud-arrow-up-fill"></i></span><span>Enviar comprobante</span></a>
+  <a href="{% url 'solicitudes_lista' casa.id %}"><span class="menu-icon orange"><i class="bi bi-chat-left-text-fill"></i></span><span>Solicitudes y mensajes</span>{% if solicitudes_pendientes %}<b>{{ solicitudes_pendientes }}</b>{% endif %}</a>
+  <a href="{% url 'areas_lista' casa.id %}"><span class="menu-icon purple"><i class="bi bi-calendar2-check-fill"></i></span><span>Reservaciones</span>{% if reservas_pendientes %}<b>{{ reservas_pendientes }}</b>{% endif %}</a>
+  <a href="{% url 'comunicados_lista' casa.id %}"><span class="menu-icon red"><i class="bi bi-megaphone-fill"></i></span><span>Comunicados</span></a>
+  <a href="{% url 'comunidad_muro' casa.id %}"><span class="menu-icon teal"><i class="bi bi-chat-square-heart-fill"></i></span><span>Comunidad</span></a>
+  <a href="{% url 'clasificados_lista' casa.id %}"><span class="menu-icon amber"><i class="bi bi-shop"></i></span><span>Clasificados</span></a>
+  <a href="{% url 'mis_vehiculos' casa.id %}"><span class="menu-icon blue"><i class="bi bi-car-front-fill"></i></span><span>Mis vehículos</span></a>
+  <a href="{% url 'directorio_documentos' casa.id %}"><span class="menu-icon slate"><i class="bi bi-telephone-fill"></i></span><span>Directorio y documentos</span></a>
+  <a href="{% url 'cuenta_pago_residente' casa.id %}"><span class="menu-icon indigo"><i class="bi bi-bank2"></i></span><span>Cuenta para pagos</span></a>
+  <a href="{% url 'configurar_perfil' casa.id %}"><span class="menu-icon gray"><i class="bi bi-gear-fill"></i></span><span>Configuración</span></a>
+</section>
+{% if comunicados %}<section class="resident-section"><div class="section-heading"><h2>Últimos comunicados</h2><a href="{% url 'comunicados_lista' casa.id %}">Ver todos</a></div>{% for comunicado in comunicados %}<article class="compact-notice"><span><i class="bi bi-megaphone"></i></span><div><strong>{{ comunicado.titulo }}</strong><small>{{ comunicado.publicado_en|date:'d/m/Y' }}</small></div></article>{% endfor %}</section>{% endif %}
+<form method="post" action="{% url 'logout' %}" class="logout-mobile">{% csrf_token %}<button type="submit"><i class="bi bi-box-arrow-right"></i> Cerrar sesión</button></form>
+{% endblock %}

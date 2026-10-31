@@ -1,0 +1,32 @@
+{% extends 'base.html' %}{% load app_tags %}
+{% block title %}Resumen financiero | Pase Seguro{% endblock %}
+{% block content %}
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
+  <div><h1 class="page-title">Resumen financiero</h1><p class="page-subtitle">Comparativo mensual de todas las residenciales permitidas</p></div>
+  <a class="btn btn-outline-primary" href="{% url 'dashboard' %}?anio={{ anio }}&mes={{ mes }}"><i class="bi bi-arrow-left me-1"></i> Volver al control mensual</a>
+</div>
+<div class="card mb-4">
+  <div class="card-body">
+    <form class="row g-3 align-items-end" method="get">
+      <div class="col-7 col-md-4"><label class="form-label fw-semibold">Mes</label><select class="form-select form-select-lg" name="mes">{% for numero,nombre in meses %}<option value="{{ numero }}" {% if mes == numero %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div>
+      <div class="col-5 col-md-3"><label class="form-label fw-semibold">Año</label><input class="form-control form-control-lg" name="anio" type="number" value="{{ anio }}" min="2020" max="2100"></div>
+      <div class="col-12 col-md-3"><button class="btn btn-primary btn-lg w-100">Consultar</button></div>
+    </form>
+  </div>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-6 col-xl-3"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Esperado total</div><div class="metric-value">{{ esperado|moneda }}</div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Cobrado total</div><div class="metric-value text-success">{{ cobrado|moneda }}</div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Pendiente total</div><div class="metric-value text-danger">{{ pendiente|moneda }}</div></div></div></div>
+  <div class="col-6 col-xl-3"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Recaudación</div><div class="metric-value">{{ porcentaje|floatformat:1 }}%</div></div></div></div>
+</div>
+<div class="card">
+  <div class="card-body">
+    <div class="mb-3"><h2 class="h5 mb-1">Residenciales</h2><p class="small text-muted mb-0">{{ mes|nombre_mes }} {{ anio }}</p></div>
+    <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Residencial</th><th>Personas</th><th>Esperado</th><th>Cobrado</th><th>Pendiente</th><th>Recaudación</th><th></th></tr></thead><tbody>
+      {% for item in resumen %}<tr><td><strong>{{ item.colonia.nombre }}</strong><div class="small text-muted">{{ item.pagadas }} pagadas · {{ item.pendientes }} pendientes</div></td><td>{{ item.personas }}</td><td>{{ item.esperado|moneda }}</td><td class="text-success">{{ item.cobrado|moneda }}</td><td class="text-danger">{{ item.pendiente|moneda }}</td><td><strong>{{ item.porcentaje|floatformat:1 }}%</strong></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{% url 'dashboard' %}?colonia={{ item.colonia.pk }}&anio={{ anio }}&mes={{ mes }}">Ver mes</a></td></tr>
+      {% empty %}<tr><td colspan="7" class="text-center text-muted py-4">No hay residenciales disponibles.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#12365c">
+  <title>{% block title %}Pase Seguro{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{% static 'core/app.css' %}" rel="stylesheet">
+</head>
+<body>
+{% if user.is_authenticated %}
+<nav class="navbar navbar-dark navbar-expand-lg fixed-top app-navbar">
+  <div class="container-fluid">
+    <button class="btn text-white d-lg-none p-1 me-2" data-bs-toggle="offcanvas" data-bs-target="#sidebar"><i class="bi bi-list fs-2"></i></button>
+    <a class="navbar-brand fw-semibold" href="{% url 'dashboard' %}"><i class="bi bi-shield-check me-2"></i>Pase Seguro</a>
+    <div class="ms-auto d-flex align-items-center gap-2">
+      <span class="text-white-50 d-none d-sm-inline small">{{ user.nombre_completo }}</span>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn btn-sm btn-outline-light" type="submit" aria-label="Cerrar sesión"><i class="bi bi-box-arrow-right"></i></button></form>
+    </div>
+  </div>
+</nav>
+<div class="offcanvas-lg offcanvas-start app-sidebar" tabindex="-1" id="sidebar">
+  <div class="offcanvas-header border-bottom"><h5 class="offcanvas-title">Menú</h5><button class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebar"></button></div>
+  <div class="offcanvas-body d-flex flex-column p-3">
+    <nav class="nav nav-pills flex-column gap-1">
+      {% if user.rol == 'RESIDENTE' and not user.is_superuser %}
+        <a class="nav-link" href="{% url 'mi_cuenta' %}"><i class="bi bi-house-door"></i> Mi cuenta</a>
+      {% elif user.rol == 'GUARDIA' and not user.is_superuser %}
+        <a class="nav-link" href="{% url 'dashboard_guardia' %}"><i class="bi bi-speedometer2"></i> Panel de guardia</a>
+        <a class="nav-link action-link" href="{% url 'registrar_entrada' %}"><i class="bi bi-car-front-fill"></i> Registrar entrada</a>
+        <a class="nav-link" href="{% url 'historial_accesos' %}"><i class="bi bi-clock-history"></i> Entradas y salidas</a>
+        <a class="nav-link" href="{% url 'visitas_control' %}"><i class="bi bi-person-badge"></i> Visitas programadas</a>
+      {% else %}
+        <a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-calendar-check"></i> Control mensual</a>
+        <a class="nav-link" href="{% url 'dashboard_financiero' %}"><i class="bi bi-grid"></i> Resumen financiero</a>
+        <a class="nav-link" href="{% url 'casas_lista' %}"><i class="bi bi-houses"></i> Casas</a>
+        <a class="nav-link" href="{% url 'cuotas_lista' %}"><i class="bi bi-calendar3"></i> Cuotas</a>
+        <a class="nav-link" href="{% url 'pagos_lista' %}"><i class="bi bi-cash-coin"></i> Pagos</a>
+        <a class="nav-link" href="{% url 'comprobantes_gestion' %}"><i class="bi bi-file-earmark-check"></i> Comprobantes</a>
+        <a class="nav-link action-link" href="{% url 'pago_nuevo' %}"><i class="bi bi-plus-circle"></i> Registrar pago</a>
+        <div class="nav-section">Operación</div>
+        <a class="nav-link" href="{% url 'visitas_control' %}"><i class="bi bi-person-badge"></i> Visitas</a>
+        <a class="nav-link" href="{% url 'bandeja_comunidad' %}"><i class="bi bi-chat-square-text"></i> Comunidad</a>
+        <a class="nav-link" href="{% url 'reservas_gestion' %}"><i class="bi bi-calendar2-check"></i> Reservaciones</a>
+        <div class="nav-section">Reportes</div>
+        <a class="nav-link" href="{% url 'reporte_morosidad' %}"><i class="bi bi-exclamation-circle"></i> Morosidad</a>
+        <a class="nav-link" href="{% url 'reporte_recaudacion' %}"><i class="bi bi-bar-chart"></i> Recaudación</a>
+        <a class="nav-link" href="{% url 'reporte_pagos' %}"><i class="bi bi-clock-history"></i> Historial de pagos</a>
+        {% if user.rol == 'ADMINISTRADOR' or user.rol == 'SUPERADMIN' or user.is_superuser %}
+          <div class="nav-section">Administración</div>
+          <a class="nav-link" href="{% url 'colonias_lista' %}"><i class="bi bi-buildings"></i> Colonias</a>
+          <a class="nav-link" href="{% url 'responsables_lista' %}"><i class="bi bi-people"></i> Responsables</a>
+          <a class="nav-link" href="{% url 'tarifas_lista' %}"><i class="bi bi-sliders"></i> Tarifas</a>
+          <a class="nav-link" href="{% url 'usuarios_lista' %}"><i class="bi bi-person-gear"></i> Usuarios</a>
+        {% endif %}
+      {% endif %}
+    </nav>
+    <div class="mt-auto pt-4 small text-muted">{{ user.get_rol_display }}</div>
+  </div>
+</div>
+{% endif %}
+<main class="{% if user.is_authenticated %}app-main{% else %}login-main{% endif %}">
+  <div class="container-fluid px-3 px-md-4 py-4">
+    {% for message in messages %}<div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>{% endfor %}
+    {% block content %}{% endblock %}
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

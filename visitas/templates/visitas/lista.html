@@ -1,0 +1,7 @@
+{% extends 'portal/base_portal.html' %}
+{% block title %}Mis visitas{% endblock %}
+{% block content %}
+<div class="resident-page-head"><a href="{% url 'portal_residente' casa.id %}"><i class="bi bi-arrow-left"></i></a><div><h1>Visitas</h1><p>Accesos programados para tu residencia</p></div></div>
+<a class="btn btn-primary btn-lg w-100 mb-3" href="{% url 'visita_crear' casa.id %}"><i class="bi bi-person-plus-fill me-2"></i>Registrar visita</a>
+<div class="portal-list">{% for visita in visitas %}<a class="portal-list-card" href="{% url 'visita_detalle' casa.id visita.id %}"><span class="list-icon"><i class="bi bi-person-badge-fill"></i></span><div><strong>{{ visita.nombre_visitante }}</strong><small>{{ visita.fecha_inicio|date:'d/m/Y H:i' }} · {{ visita.get_temporalidad_display }}</small><small>Clave: {{ visita.clave_acceso }} · Usos {{ visita.usos_actuales }}/{{ visita.max_usos }}</small></div><span class="status-pill {% if visita.activa %}status-pagada{% else %}status-anulada{% endif %}">{% if visita.activa %}Activa{% else %}Cancelada{% endif %}</span></a>{% empty %}<div class="empty-state"><i class="bi bi-people"></i><h2>No hay visitas registradas</h2><p>Crea un acceso y compártelo con tu visitante.</p></div>{% endfor %}</div>
+{% endblock %}
