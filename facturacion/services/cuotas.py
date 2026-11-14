@@ -1,17 +1,72 @@
 import calendar
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Q, Sum
+from django.utils import timezone
 
-from colonias.models import Casa
+from colonias.models import Casa, Colonia
 from core.models import registrar_auditoria
 from facturacion.models import AplicacionPago, CuotaMensual, TarifaColonia, TarifaEspecialCasa
 
 
 CENTAVOS = Decimal("0.01")
+
+
+@transaction.atomic
+def asegurar_cuota(*, casa, anio, mes, usuario=None):
+    """One monthly charge per person; never rewrite an existing charge or payment."""
+    fecha = date(anio, mes, 1)
+    Colonia.objects.select_for_update().get(pk=casa.colonia_id)
+    if not casa.activa or not casa.responsable_actual_id or not casa.responsable_actual.activo:
+        raise ValidationError("La casa debe tener un responsable activo para registrar su cuota.")
+    cuota = CuotaMensual.objects.filter(
+        responsable=casa.responsable_actual, colonia=casa.colonia, anio=anio, mes=mes,
+    ).first()
+    if cuota:
+        return cuota
+    # Multiple homes belonging to one person use the same canonical home as batch generation.
+    casa = Casa.objects.filter(
+        colonia=casa.colonia, responsable_actual=casa.responsable_actual, activa=True,
+    ).select_related("colonia", "responsable_actual").order_by("pk").first()
+    monto = obtener_monto_cuota(casa, anio, mes)
+    cuota = CuotaMensual.objects.create(
+        casa=casa, responsable=casa.responsable_actual, colonia=casa.colonia,
+        anio=anio, mes=mes, monto_original=monto, saldo=monto,
+        fecha_vencimiento=fecha.replace(day=calendar.monthrange(anio, mes)[1]),
+    )
+    registrar_auditoria(usuario=usuario, accion="GENERACION_CUOTAS", objeto=cuota,
+                        descripcion=f"Cuota de {cuota.periodo} generada automáticamente con tarifa L {monto:.2f}.")
+    return cuota
+
+
+@transaction.atomic
+def definir_tarifa(*, colonia, monto, anio, mes, usuario):
+    inicio = date(anio, mes, 1)
+    if inicio < timezone.localdate().replace(day=1):
+        raise ValidationError("El cambio de tarifa debe iniciar este mes o en un mes futuro para conservar el historial.")
+    Colonia.objects.select_for_update().get(pk=colonia.pk)
+    if TarifaColonia.objects.filter(colonia=colonia, activa=True, fecha_inicio__gt=inicio).exists():
+        raise ValidationError("Ya hay una tarifa programada después de este mes. Revise su vigencia antes de cambiarla.")
+    anteriores = TarifaColonia.objects.filter(colonia=colonia, activa=True).filter(
+        Q(fecha_fin__isnull=True) | Q(fecha_fin__gte=inicio),
+    )
+    for anterior in anteriores:
+        if anterior.fecha_inicio >= inicio:
+            anterior.activa = False
+        else:
+            anterior.fecha_fin = inicio - timedelta(days=1)
+        anterior.save()
+    tarifa = TarifaColonia(colonia=colonia, monto=monto, fecha_inicio=inicio)
+    tarifa.full_clean()
+    tarifa.save()
+    registrar_auditoria(usuario=usuario, accion="CREACION_TARIFA", objeto=tarifa,
+                        descripcion=f"Cuota mensual automática de L {monto:.2f} desde {mes:02d}/{anio}.")
+    hoy = timezone.localdate()
+    generar_cuotas_mes(colonia=colonia, anio=hoy.year, mes=hoy.month, usuario=usuario)
+    return tarifa
 
 
 def _vigente(queryset, fecha):
@@ -41,7 +96,8 @@ def generar_cuotas_mes(*, colonia, anio, mes, usuario=None):
     creadas = 0
     existentes = 0
     errores = []
-    ultimo_dia = calendar.monthrange(anio, mes)[1]
+    Colonia.objects.select_for_update().get(pk=colonia.pk)
+    existentes_ids = set(CuotaMensual.objects.filter(colonia=colonia, anio=anio, mes=mes).values_list("responsable_id", flat=True))
 
     vistos = set()
     casas = Casa.objects.select_related("colonia", "responsable_actual").filter(
@@ -55,31 +111,14 @@ def generar_cuotas_mes(*, colonia, anio, mes, usuario=None):
         if responsable.pk in vistos:
             continue
         vistos.add(responsable.pk)
-        if CuotaMensual.objects.filter(
-            responsable=responsable,
-            colonia=colonia,
-            anio=anio,
-            mes=mes,
-        ).exists():
+        if responsable.pk in existentes_ids:
             existentes += 1
             continue
         try:
-            monto = obtener_monto_cuota(casa, anio, mes)
+            asegurar_cuota(casa=casa, anio=anio, mes=mes, usuario=usuario)
         except ValidationError as exc:
             errores.extend(exc.messages)
             continue
-        CuotaMensual.objects.create(
-            casa=casa,
-            responsable=responsable,
-            colonia=colonia,
-            anio=anio,
-            mes=mes,
-            monto_original=monto,
-            monto_pagado=Decimal("0.00"),
-            saldo=monto,
-            estado=CuotaMensual.Estado.PENDIENTE,
-            fecha_vencimiento=date(anio, mes, ultimo_dia),
-        )
         creadas += 1
 
     if creadas:

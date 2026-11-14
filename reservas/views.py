@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import User
-from accounts.permissions import ROLES_FINANCIEROS, colonias_permitidas, roles_requeridos
+from accounts.permissions import ROLES_FINANCIEROS, fijar_colonia_formulario, colonias_permitidas, roles_requeridos
 from residentes.access import casa_del_residente
 
 from .forms import AreaComunForm, ReservaForm, RevisarReservaForm
@@ -89,6 +89,7 @@ def area_crear(request):
         request.FILES or None,
         colonias_queryset=colonias_permitidas(request.user),
     )
+    fijar_colonia_formulario(form, request.user)
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, "Área común creada.")

@@ -9,6 +9,8 @@ class PasswordTemporalMiddleware:
     def __call__(self, request):
         if request.user.is_authenticated and request.user.debe_cambiar_password:
             permitidas = {
+                reverse("app_manifest"),
+                reverse("android_assetlinks"),
                 reverse("cambiar_password_obligatorio"),
                 reverse("logout"),
             }

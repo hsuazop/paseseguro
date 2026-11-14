@@ -21,6 +21,7 @@ def crear_usuario_residente(responsable, password=None):
     usuario = User.objects.create_user(
         username=responsable.identidad,
         identidad=responsable.identidad,
+        email=responsable.correo,
         first_name=nombre,
         last_name=apellido,
         rol=User.Rol.RESIDENTE,

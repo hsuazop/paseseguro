@@ -7,6 +7,7 @@ from core.models import TimeStampedModel
 class User(AbstractUser):
     class Rol(models.TextChoices):
         ADMINISTRADOR = "ADMINISTRADOR", "Administrador"
+        TESORERO = "TESORERO", "Tesorero"
         GUARDIA = "GUARDIA", "Guardia"
         RESIDENTE = "RESIDENTE", "Usuario residente"
 

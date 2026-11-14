@@ -23,11 +23,14 @@ from django.urls import include, path
 from accounts import views as account_views
 from colonias import views as colonia_views
 from core import views as core_views
+from core.pwa import android_assetlinks, app_manifest
 from facturacion import views as factura_views
 from reportes import views as reporte_views
 from residentes import views as residente_views
 
 urlpatterns = [
+    path('.well-known/assetlinks.json', android_assetlinks, name='android_assetlinks'),
+    path('manifest.webmanifest', app_manifest, name='app_manifest'),
     path('admin/', admin.site.urls),
     path('login/', account_views.AccesoView.as_view(), name='login'),
     path('logout/', LogoutView.as_view(), name='logout'),
@@ -35,6 +38,8 @@ urlpatterns = [
     path('', core_views.dashboard, name='inicio'),
     path('dashboard/', core_views.dashboard, name='dashboard'),
     path('dashboard/financiero/', core_views.dashboard_financiero, name='dashboard_financiero'),
+    path('tesoreria/', factura_views.tesoreria, name='tesoreria'),
+    path('tesoreria/efectivo/', factura_views.pago_efectivo, name='pago_efectivo'),
     path('usuarios/', account_views.usuarios_lista, name='usuarios_lista'),
     path('usuarios/nuevo/', account_views.usuario_crear, name='usuario_crear'),
     path('usuarios/<int:pk>/restablecer-password/', account_views.usuario_reset_password, name='usuario_reset_password'),

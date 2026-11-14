@@ -28,29 +28,48 @@ class CambioPasswordForm(PasswordChangeForm):
 
 
 class UsuarioForm(UserCreationForm):
-    colonias = forms.ModelMultipleChoiceField(
+    colonia = forms.ModelChoiceField(
         queryset=None,
-        required=False,
-        label="Colonias asignadas",
-        widget=forms.SelectMultiple(attrs={"size": 6}),
+        required=True,
+        label="Residencial asignada",
+        empty_label="Seleccione una residencial",
     )
 
     class Meta(UserCreationForm.Meta):
         model = User
         fields = ("username", "first_name", "last_name", "identidad", "rol", "is_active")
-        labels = {"first_name": "Nombre", "last_name": "Apellido", "is_active": "Activo"}
+        labels = {
+            "username": "Usuario de inicio de sesión",
+            "first_name": "Nombre",
+            "last_name": "Apellido",
+            "identidad": "Identidad",
+            "rol": "Tipo de usuario",
+            "is_active": "Activo",
+        }
 
     def __init__(self, *args, colonias_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["colonias"].queryset = colonias_queryset
+        self.fields["colonia"].queryset = colonias_queryset
+        self.fields["identidad"].required = False
         aplicar_bootstrap(self)
 
     def save(self, commit=True):
         user = super().save(commit=commit)
         if commit:
-            for colonia in self.cleaned_data.get("colonias", []):
-                UsuarioColonia.objects.update_or_create(usuario=user, colonia=colonia, defaults={"activa": True})
+            UsuarioColonia.objects.update_or_create(
+                usuario=user,
+                colonia=self.cleaned_data["colonia"],
+                defaults={"activa": True},
+            )
         return user
+
+    def clean(self):
+        cleaned_data = super().clean()
+        rol = cleaned_data.get("rol")
+        colonia = cleaned_data.get("colonia")
+        if rol in (User.Rol.GUARDIA, User.Rol.TESORERO) and not colonia:
+            self.add_error("colonia", "El guardia y el tesorero deben estar asignados a una residencial.")
+        return cleaned_data
 
 
 def generar_password_temporal(longitud=10):

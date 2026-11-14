@@ -39,6 +39,18 @@ venv/
 ENV/
 local_settings.py
 credenciales
+*.keystore
+*.jks
+signing-info.json
+
+# Dependencias y artefactos locales generados
+/node_modules/
+/outputs/
+/output/
+/tmp/
+*.apk
+*.aab
+/consolidado_data.json
 
 # Pruebas y herramientas
 htmlcov/

@@ -10,6 +10,7 @@ class Responsable(TimeStampedModel):
     nombre_completo = models.CharField(max_length=180)
     identidad = models.CharField(max_length=20, unique=True)
     telefono = models.CharField(max_length=30, blank=True)
+    correo = models.EmailField("correo electrónico", blank=True)
     usuario = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

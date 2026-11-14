@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal, InvalidOperation
 
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from openpyxl import load_workbook
 
@@ -14,7 +15,7 @@ from .models import Casa, Colonia
 
 ENCABEZADOS = (
     "colonia", "codigo_casa", "numero", "bloque", "nombre_responsable",
-    "identidad", "telefono", "cuota_especial",
+    "identidad", "telefono", "cuota_especial", "correo",
 )
 
 
@@ -49,6 +50,10 @@ def analizar_importacion(archivo, colonias_permitidas):
             errores_fila.append("Falta el nombre del responsable.")
         if not fila["identidad"]:
             errores_fila.append("Falta la identidad.")
+        try:
+            validate_email(fila["correo"])
+        except ValidationError:
+            errores_fila.append("Indique un correo electrónico válido para recibir los recibos.")
 
         clave_casa = (colonia.pk if colonia else None, fila["codigo_casa"].lower())
         if clave_casa in casas_archivo:
@@ -93,13 +98,21 @@ def guardar_importacion(datos, usuario):
         if fila.get("errores"):
             raise ValidationError("No se puede guardar una importacion con errores.")
         colonia = Colonia.objects.get(pk=fila["colonia_id"])
+        correo = fila.get("correo", "").strip()
+        validate_email(correo)
         responsable, _ = Responsable.objects.get_or_create(
             identidad=fila["identidad"],
             defaults={
                 "nombre_completo": fila["nombre_responsable"],
                 "telefono": fila["telefono"],
+                "correo": correo,
             },
         )
+        responsable.correo = correo
+        responsable.save(update_fields=("correo", "updated_at"))
+        if responsable.usuario_id:
+            responsable.usuario.email = correo
+            responsable.usuario.save(update_fields=("email",))
         _, temporal = crear_usuario_residente(responsable)
         if temporal:
             passwords.append({"identidad": responsable.identidad, "password": temporal})

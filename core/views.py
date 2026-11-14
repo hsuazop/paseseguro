@@ -44,6 +44,8 @@ def dashboard(request):
         return redirect("mi_cuenta")
     if request.user.rol == User.Rol.GUARDIA and not request.user.es_superadmin:
         return redirect("dashboard_guardia")
+    if request.user.rol == User.Rol.TESORERO and not request.user.es_superadmin:
+        return redirect("tesoreria")
 
     anio, mes = _periodo_seleccionado(request)
     colonias = colonias_permitidas(request.user).filter(activa=True)
@@ -141,6 +143,8 @@ def dashboard_financiero(request):
         return redirect("mi_cuenta")
     if request.user.rol == User.Rol.GUARDIA and not request.user.es_superadmin:
         return redirect("dashboard_guardia")
+    if request.user.rol == User.Rol.TESORERO and not request.user.es_superadmin:
+        return redirect("tesoreria")
 
     anio, mes = _periodo_seleccionado(request)
     colonias = colonias_permitidas(request.user).filter(activa=True)

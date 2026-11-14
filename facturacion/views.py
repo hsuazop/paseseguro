@@ -1,15 +1,17 @@
 from datetime import date
+from decimal import Decimal
+import logging
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
-from django.db import transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import User
-from accounts.permissions import ROLES_GESTION, ROLES_FINANCIEROS, colonias_permitidas, roles_requeridos
+from accounts.permissions import ROLES_GESTION, ROLES_FINANCIEROS, colonia_actual, filtro_colonia, colonias_permitidas, roles_requeridos
 from colonias.models import Casa
 from core.models import registrar_auditoria
 from core.pagination import paginar
@@ -17,15 +19,18 @@ from core.pagination import paginar
 from .forms import (
     AnularPagoForm,
     ComprobantePagoForm,
+    CuotaReferenciaForm,
     CuentaPagoColoniaForm,
     GenerarCuotasForm,
     PagoForm,
+    PagoEfectivoForm,
     RevisarComprobanteForm,
     TarifaColoniaForm,
     TarifaEspecialForm,
 )
 from .models import ComprobanteCuota, ComprobantePago, CuentaPagoColonia, CuotaMensual, Pago, TarifaColonia, TarifaEspecialCasa
 from .services import anular_pago, generar_cuotas_mes, registrar_pago
+from .services.cuotas import asegurar_cuota, definir_tarifa
 
 
 def _pagos_permitidos(user):
@@ -39,6 +44,119 @@ def _pagos_permitidos(user):
     return Pago.objects.filter(colonia__in=colonias_permitidas(user))
 
 
+def _colonia_financiera_actual(request):
+    return colonia_actual(request)
+
+
+@roles_requeridos(*ROLES_FINANCIEROS)
+def tesoreria(request):
+    """Vista operativa: una persona por fila y el estado de vigilancia del período."""
+    hoy = date.today()
+    try:
+        anio = int(request.GET.get("anio", hoy.year))
+        mes = int(request.GET.get("mes", hoy.month))
+    except (TypeError, ValueError):
+        anio, mes = hoy.year, hoy.month
+    if not 2020 <= anio <= 2100:
+        anio = hoy.year
+    if not 1 <= mes <= 12:
+        mes = hoy.month
+
+    colonias, colonia = _colonia_financiera_actual(request)
+    filas = []
+    pagadas = pendientes = por_validar = 0
+    if colonia:
+        casas = list(
+            Casa.objects.filter(colonia=colonia, activa=True, responsable_actual__isnull=False)
+            .select_related("responsable_actual")
+            .order_by("codigo")
+        )
+        cuotas = CuotaMensual.objects.filter(
+            colonia=colonia, anio=anio, mes=mes
+        ).exclude(estado=CuotaMensual.Estado.ANULADA)
+        cuotas_por_responsable = {cuota.responsable_id: cuota for cuota in cuotas}
+        comprobantes = (
+            ComprobantePago.objects.filter(
+                colonia=colonia,
+                cuotas__anio=anio,
+                cuotas__mes=mes,
+            )
+            .select_related("pago")
+            .prefetch_related("cuotas")
+            .order_by("-created_at")
+            .distinct()
+        )
+        comprobante_por_responsable = {}
+        for comprobante in comprobantes:
+            comprobante_por_responsable.setdefault(comprobante.responsable_id, comprobante)
+
+        for casa in casas:
+            cuota = cuotas_por_responsable.get(casa.responsable_actual_id)
+            comprobante = comprobante_por_responsable.get(casa.responsable_actual_id)
+            if cuota and cuota.estado == CuotaMensual.Estado.PAGADA:
+                estado = "PAGADA"
+                pagadas += 1
+            elif comprobante and comprobante.estado == ComprobantePago.Estado.PENDIENTE:
+                estado = "POR_VALIDAR"
+                por_validar += 1
+            else:
+                estado = "PENDIENTE"
+                pendientes += 1
+            filas.append({
+                "casa": casa,
+                "responsable": casa.responsable_actual,
+                "cuota": cuota,
+                "comprobante": comprobante,
+                "estado": estado,
+            })
+
+    return render(request, "facturacion/tesoreria.html", {
+        "colonia_fija": request.user.rol == User.Rol.TESORERO and not request.user.es_superadmin,
+        "colonias": colonias,
+        "colonia": colonia,
+        "anio": anio,
+        "mes": mes,
+        "meses": CuotaMensual.MESES,
+        "filas": filas,
+        "pagadas": pagadas,
+        "pendientes": pendientes,
+        "por_validar": por_validar,
+    })
+
+
+@roles_requeridos(*ROLES_FINANCIEROS)
+def pago_efectivo(request):
+    from .services.efectivo import registrar_efectivo
+
+    _, colonia = _colonia_financiera_actual(request)
+    if not colonia:
+        messages.warning(request, "No tiene una residencial activa asignada.")
+        return redirect("tesoreria")
+    hoy = timezone.localdate()
+    form = PagoEfectivoForm(
+        request.POST if request.method == "POST" else None, colonia=colonia,
+        initial={"tipo": request.GET.get("tipo", "existente"), "casa": request.GET.get("casa"),
+                 "mes": request.GET.get("mes", hoy.month), "anio": request.GET.get("anio", hoy.year),
+                 "fecha_pago": hoy},
+    )
+    if request.method == "POST" and form.is_valid():
+        try:
+            pago, temporal = registrar_efectivo(colonia=colonia, usuario=request.user, datos=form.cleaned_data)
+        except ValidationError as exc:
+            for error in exc.messages:
+                form.add_error(None, error)
+        except IntegrityError:
+            form.add_error(None, "El vecino o su pago ya fue registrado. Revise los datos antes de intentar de nuevo.")
+        else:
+            if temporal:
+                request.session[f"alta_pago_{pago.pk}"] = {
+                    "identidad": pago.responsable.identidad, "password": temporal,
+                }
+            messages.success(request, f"Efectivo registrado. Recibo {pago.numero_recibo}.")
+            return redirect("recibo_detalle", pk=pago.pk)
+    return render(request, "facturacion/pago_efectivo.html", {"form": form, "colonia": colonia})
+
+
 @roles_requeridos(*ROLES_GESTION)
 def tarifas_lista(request):
     tarifas = TarifaColonia.objects.filter(colonia__in=colonias_permitidas(request.user)).select_related("colonia")
@@ -48,17 +166,19 @@ def tarifas_lista(request):
 
 @roles_requeridos(*ROLES_GESTION)
 def tarifa_crear(request):
-    form = TarifaColoniaForm(request.POST or None, colonias_queryset=colonias_permitidas(request.user))
+    hoy = timezone.localdate()
+    form = CuotaReferenciaForm(request.POST or None, colonias_queryset=colonias_permitidas(request.user),
+                              initial={"anio": hoy.year, "mes": hoy.month})
     if request.method == "POST" and form.is_valid():
-        tarifa = form.save()
-        registrar_auditoria(
-            usuario=request.user, accion="CREACION_TARIFA", objeto=tarifa,
-            descripcion=f"Tarifa base de L {tarifa.monto:.2f} creada.",
-            nuevos={"monto": str(tarifa.monto), "fecha_inicio": str(tarifa.fecha_inicio)},
-        )
-        messages.success(request, "Tarifa creada correctamente.")
-        return redirect("tarifas_lista")
-    return render(request, "core/formulario.html", {"form": form, "titulo": "Nueva tarifa base", "volver": "tarifas_lista"})
+        try:
+            definir_tarifa(usuario=request.user, **form.cleaned_data)
+        except ValidationError as exc:
+            for error in exc.messages:
+                form.add_error(None, error)
+        else:
+            messages.success(request, "Cuota de referencia guardada. Las cuotas mensuales se generan automáticamente; las anteriores conservan su monto y sus pagos.")
+            return redirect("tarifas_lista")
+    return render(request, "core/formulario.html", {"form": form, "titulo": "Definir cuota mensual de vigilancia", "volver": "tarifas_lista"})
 
 
 @roles_requeridos(*ROLES_GESTION)
@@ -84,7 +204,7 @@ def cuotas_lista(request):
     cuotas = CuotaMensual.objects.filter(colonia__in=colonias_permitidas(request.user)).select_related(
         "casa", "colonia", "responsable"
     )
-    colonia_id = request.GET.get("colonia", "")
+    colonia_id = filtro_colonia(request)
     anio = request.GET.get("anio", "")
     mes = request.GET.get("mes", "")
     estado = request.GET.get("estado", "")
@@ -190,6 +310,11 @@ def pago_detalle(request, pk):
 
 def recibo_detalle(request, pk):
     pago = _pago_autorizado(request, pk)
+    alta = request.session.pop(f"alta_pago_{pago.pk}", None)
+    if alta:
+        response = render(request, "facturacion/efectivo_registrado.html", {"pago": pago, "alta": alta})
+        response["Cache-Control"] = "no-store"
+        return response
     return render(request, "facturacion/recibo.html", {"pago": pago, "publico": False})
 
 
@@ -263,33 +388,47 @@ def comprobante_enviar(request, casa_id):
         colonia=casa.colonia,
         saldo__gt=0,
     ).exclude(estado=CuotaMensual.Estado.ANULADA).order_by("anio", "mes")
-    form = ComprobantePagoForm(request.POST or None, request.FILES or None, initial={"fecha_pago": date.today()})
+    form = ComprobantePagoForm(
+        request.POST if request.method == "POST" else None,
+        request.FILES if request.method == "POST" else None,
+        cuotas_queryset=cuotas,
+        casa=casa,
+    )
     if request.method == "POST" and form.is_valid():
-        cuota_ids = request.POST.getlist("cuota_id")
-        seleccionadas = list(cuotas.filter(pk__in=cuota_ids))
-        if not seleccionadas:
-            form.add_error(None, "Selecciona al menos una cuota a la que corresponde el comprobante.")
-        else:
+        try:
             with transaction.atomic():
+                cuota = asegurar_cuota(casa=casa, anio=form.cleaned_data["anio"], mes=form.cleaned_data["mes"], usuario=request.user)
+                if cuota.estado in (CuotaMensual.Estado.PAGADA, CuotaMensual.Estado.ANULADA) or cuota.saldo < form.cleaned_data["monto"]:
+                    raise ValidationError("El saldo de este período cambió. Revisa tu estado de cuenta antes de enviar el comprobante.")
                 comprobante = form.save(commit=False)
                 comprobante.casa = casa
                 comprobante.colonia = casa.colonia
                 comprobante.responsable = casa.responsable_actual
                 comprobante.enviado_por = request.user
+                comprobante.fecha_pago = timezone.localdate()
                 comprobante.full_clean(exclude=("cuotas",))
                 comprobante.save()
-                ComprobanteCuota.objects.bulk_create(
-                    [ComprobanteCuota(comprobante=comprobante, cuota=cuota) for cuota in seleccionadas]
-                )
+                ComprobanteCuota.objects.create(comprobante=comprobante, cuota=cuota)
                 registrar_auditoria(
                     usuario=request.user,
                     accion="ENVIO_COMPROBANTE",
                     objeto=comprobante,
-                    descripcion=f"Comprobante por L {comprobante.monto:.2f} enviado.",
+                    descripcion=f"Comprobante por L {comprobante.monto:.2f} para {cuota.periodo} enviado.",
                 )
-            messages.success(request, "Comprobante enviado para revisión.")
+        except ValidationError as exc:
+            for error in exc.messages:
+                form.add_error(None, error)
+        except (OSError, DatabaseError):
+            logging.getLogger(__name__).exception("No se pudo guardar el comprobante de casa %s", casa.pk)
+            form.add_error(None, "No pudimos guardar tu comprobante. Adjunta el archivo nuevamente e intenta enviarlo. Si el problema continúa, comunícate con tesorería.")
+        else:
+            messages.success(request, f"Comprobante de {cuota.periodo} enviado para revisión.")
             return redirect("comprobantes_residente", casa_id=casa.pk)
-    return render(request, "facturacion/comprobante_enviar.html", {"casa": casa, "form": form, "cuotas": cuotas})
+    if request.method == "POST" and form.errors:
+        form.fields["archivo"].help_text = "Vuelve a adjuntar tu comprobante para enviarlo. Formatos: JPG, PNG, WEBP o PDF. Máximo: 8 MB."
+    return render(request, "facturacion/comprobante_enviar.html", {
+        "casa": casa, "form": form,
+    })
 
 
 def cuenta_pago_residente(request, casa_id):
@@ -327,21 +466,59 @@ def comprobante_revisar(request, pk):
     )
     if request.method == "POST" and form.is_valid():
         anterior = comprobante.estado
-        comprobante.estado = form.cleaned_data["estado"]
-        comprobante.comentario_revision = form.cleaned_data["comentario_revision"]
-        comprobante.revisado_por = request.user
-        comprobante.revisado_en = timezone.now()
-        comprobante.save(
-            update_fields=("estado", "comentario_revision", "revisado_por", "revisado_en", "updated_at")
-        )
-        registrar_auditoria(
-            usuario=request.user,
-            accion="REVISION_COMPROBANTE",
-            objeto=comprobante,
-            descripcion=f"Comprobante cambiado de {anterior} a {comprobante.estado}.",
-        )
-        messages.success(request, "Comprobante revisado. Registra el pago para aplicar el dinero a las cuotas.")
-        return redirect("comprobantes_gestion")
+        nuevo_estado = form.cleaned_data["estado"]
+        try:
+            with transaction.atomic():
+                if nuevo_estado == ComprobantePago.Estado.APROBADO and not comprobante.pago_id:
+                    cuotas = list(
+                        CuotaMensual.objects.select_for_update().filter(
+                            comprobantes=comprobante,
+                            saldo__gt=0,
+                        ).exclude(estado=CuotaMensual.Estado.ANULADA).order_by("anio", "mes", "pk")
+                    )
+                    restante = comprobante.monto
+                    aplicaciones = []
+                    for cuota in cuotas:
+                        monto = min(cuota.saldo, restante)
+                        if monto > Decimal("0"):
+                            aplicaciones.append({"cuota_id": cuota.pk, "monto": monto})
+                            restante -= monto
+                    if restante > Decimal("0"):
+                        raise ValidationError(
+                            "El comprobante supera el saldo de las cuotas seleccionadas. Revise el monto o las cuotas antes de aprobarlo."
+                        )
+                    comprobante.pago = registrar_pago(
+                        casa=comprobante.casa,
+                        responsable=comprobante.responsable,
+                        fecha_pago=comprobante.fecha_pago,
+                        monto_total=comprobante.monto,
+                        metodo_pago=comprobante.metodo_pago,
+                        referencia=comprobante.referencia,
+                        observaciones=f"Generado al aprobar comprobante #{comprobante.pk}.",
+                        aplicaciones=aplicaciones,
+                        usuario=request.user,
+                    )
+
+                comprobante.estado = nuevo_estado
+                comprobante.comentario_revision = form.cleaned_data["comentario_revision"]
+                comprobante.revisado_por = request.user
+                comprobante.revisado_en = timezone.now()
+                comprobante.save(
+                    update_fields=(
+                        "estado", "comentario_revision", "revisado_por", "revisado_en", "pago", "updated_at"
+                    )
+                )
+                registrar_auditoria(
+                    usuario=request.user,
+                    accion="REVISION_COMPROBANTE",
+                    objeto=comprobante,
+                    descripcion=f"Comprobante cambiado de {anterior} a {comprobante.estado}.",
+                )
+        except ValidationError as exc:
+            form.add_error(None, exc.message)
+        else:
+            messages.success(request, "Comprobante revisado y pago aplicado a las cuotas seleccionadas.")
+            return redirect("comprobantes_gestion")
     return render(request, "facturacion/comprobante_revisar.html", {"comprobante": comprobante, "form": form})
 
 

@@ -1,5 +1,6 @@
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
+from accounts.permissions import colonias_permitidas
 
 from .models import Responsable
 
@@ -14,7 +15,7 @@ def responsable_del_usuario(user):
 def casa_del_residente(user, casa_id):
     responsable = responsable_del_usuario(user)
     return get_object_or_404(
-        responsable.casas_actuales.filter(activa=True).select_related("colonia", "responsable_actual"),
+        responsable.casas_actuales.filter(activa=True, colonia__in=colonias_permitidas(user)).select_related("colonia", "responsable_actual"),
         pk=casa_id,
     )
 

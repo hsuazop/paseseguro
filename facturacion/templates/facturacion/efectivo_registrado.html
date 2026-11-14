@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title">Vecino y pago registrados</h1>
+<div class="card mb-4"><div class="card-body">
+<h2 class="h5">{{ pago.responsable.nombre_completo }}</h2>
+<p>{{ pago.colonia.nombre }} · Casa {{ pago.casa.codigo }} · Recibo {{ pago.numero_recibo }}</p>
+<div class="alert alert-info"><p>Entregue estos datos al vecino para ingresar a su cuenta:</p>
+<p>Usuario: <strong>{{ alta.identidad }}</strong><br>Contraseña temporal: <strong>{{ alta.password }}</strong></p>
+<p class="mb-0">Deberá cambiarla al ingresar. Estos datos se muestran una sola vez.</p></div>
+<a class="btn btn-primary" href="{% url 'recibo_detalle' pago.pk %}">Ver recibo</a>
+<a class="btn btn-outline-primary" href="{% url 'recibo_pdf' pago.pk %}">Descargar recibo</a>
+<a class="btn btn-outline-secondary" href="{% url 'tesoreria' %}">Volver a vigilancia del mes</a>
+</div></div>
+{% endblock %}

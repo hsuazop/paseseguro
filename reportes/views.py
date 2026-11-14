@@ -7,14 +7,14 @@ from django.db.models import Count, Q, Sum
 from django.http import HttpResponse
 from django.shortcuts import render
 
-from accounts.permissions import ROLES_FINANCIEROS, colonias_permitidas, roles_requeridos
+from accounts.permissions import ROLES_FINANCIEROS, filtro_colonia, colonias_permitidas, roles_requeridos
 from colonias.models import Casa
 from facturacion.models import AplicacionPago, CuotaMensual, Pago
 from residentes.models import Responsable
 
 
 def _filtros_periodo(request, cuotas):
-    colonia_id = request.GET.get("colonia", "")
+    colonia_id = filtro_colonia(request)
     anio = request.GET.get("anio", "")
     mes = request.GET.get("mes", "")
     if colonia_id:
@@ -28,7 +28,7 @@ def _filtros_periodo(request, cuotas):
 
 @roles_requeridos(*ROLES_FINANCIEROS)
 def morosidad(request):
-    colonia_id = request.GET.get("colonia", "")
+    colonia_id = filtro_colonia(request)
     cuentas = _cuentas_morosas(request.user, colonia_id)
     context = {"cuentas": cuentas, "colonias": colonias_permitidas(request.user), "colonia_id": colonia_id}
     return render(request, "reportes/morosidad.html", context)
@@ -104,7 +104,7 @@ def _pagos_filtrados(request):
     pagos = Pago.objects.filter(colonia__in=colonias_permitidas(request.user)).select_related(
         "casa", "colonia", "responsable", "usuario_que_registra",
     )
-    colonia = request.GET.get("colonia", "")
+    colonia = filtro_colonia(request)
     desde = request.GET.get("desde", "")
     hasta = request.GET.get("hasta", "")
     casa = request.GET.get("casa", "").strip()
@@ -161,7 +161,7 @@ def _respuesta_excel(nombre, encabezados, filas):
 
 @roles_requeridos(*ROLES_FINANCIEROS)
 def exportar_morosidad_excel(request):
-    cuentas = _cuentas_morosas(request.user, request.GET.get("colonia", ""))
+    cuentas = _cuentas_morosas(request.user, filtro_colonia(request))
     filas = [
         [c.colonia_cuenta.nombre, c.residencia_codigo or "", c.nombre_completo, c.telefono, c.meses_pendientes, c.saldo_total]
         for c in cuentas
@@ -193,7 +193,7 @@ def reporte_pdf(request, tipo):
     from .pdf import generar_reporte_pdf
 
     if tipo == "morosidad":
-        cuentas = _cuentas_morosas(request.user, request.GET.get("colonia", ""))
+        cuentas = _cuentas_morosas(request.user, filtro_colonia(request))
         titulo = "Reporte de morosidad"
         encabezados = ["Colonia", "Casa", "Responsable", "Telefono", "Meses", "Saldo"]
         filas = [[

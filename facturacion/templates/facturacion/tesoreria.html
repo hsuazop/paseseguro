@@ -1,0 +1,37 @@
+{% extends 'base.html' %}{% load app_tags l10n %}
+{% block title %}Vigilancia del mes | Pase Seguro{% endblock %}
+{% block content %}
+{% if colonia_fija %}<div class="mb-4"><h1 class="page-title">Bienvenido, {{ user.nombre_completo }}</h1><p class="page-subtitle">Tesorería de <strong>{{ colonia.nombre|default:'residencial sin asignar' }}</strong></p></div>{% endif %}
+<div class="page-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
+  <div><h2 class="page-title">Vigilancia del mes</h2><p class="page-subtitle">Revise quién pagó, registre efectivo y valide los comprobantes enviados.</p></div>
+  <div class="page-actions d-flex flex-wrap gap-2">
+    {% if colonia %}<a class="btn btn-primary" href="{% url 'pago_efectivo' %}?mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar efectivo</a>
+    <a class="btn btn-outline-primary" href="{% url 'pago_efectivo' %}?tipo=nuevo&mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Nuevo vecino y pago</a>{% endif %}
+    <a class="btn btn-outline-primary" href="{% url 'comprobantes_gestion' %}?estado=PENDIENTE">Ver comprobantes pendientes</a>
+  </div>
+</div>
+<div class="card mb-4"><div class="card-body"><form class="row g-3 align-items-end" method="get">
+  {% if not colonia_fija %}<div class="col-12 col-lg-5"><label class="form-label fw-semibold" for="colonia">Residencial</label><select id="colonia" class="form-select form-select-lg" name="colonia">{% for item in colonias %}<option value="{{ item.pk|unlocalize }}" {% if colonia.pk == item.pk %}selected{% endif %}>{{ item.nombre }}</option>{% endfor %}</select></div>{% endif %}
+  <div class="col-7 col-lg-3"><label class="form-label fw-semibold" for="mes">Mes</label><select id="mes" class="form-select form-select-lg" name="mes">{% for numero,nombre in meses %}<option value="{{ numero }}" {% if mes == numero %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div>
+  <div class="col-5 col-lg-2"><label class="form-label fw-semibold" for="anio">Año</label><input id="anio" class="form-control form-control-lg" name="anio" type="number" value="{{ anio|unlocalize }}" min="2020" max="2100"></div>
+  <div class="col-12 col-lg-2"><button class="btn btn-primary btn-lg w-100">Consultar</button></div>
+</form></div></div>
+{% if colonia %}
+<div class="row g-3 mb-4">
+  <div class="col-4"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Pagaron</div><div class="metric-value text-success">{{ pagadas }}</div></div></div></div>
+  <div class="col-4"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Por validar</div><div class="metric-value text-warning">{{ por_validar }}</div></div></div></div>
+  <div class="col-4"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Pendientes</div><div class="metric-value text-danger">{{ pendientes }}</div></div></div></div>
+</div>
+<div class="card"><div class="table-responsive"><table data-mobile-cards class="table align-middle mb-0"><thead><tr><th>Casa</th><th>Responsable</th><th>Cuota de vigilancia</th><th>Estado</th><th></th></tr></thead><tbody>
+{% for fila in filas %}<tr>
+  <td><strong>{{ fila.casa.codigo }}</strong></td><td>{{ fila.responsable.nombre_completo }}<div class="small text-muted">{{ fila.responsable.telefono|default:'' }}</div></td>
+  <td>{% if fila.cuota %}{{ fila.cuota.monto_pagado|moneda }} de {{ fila.cuota.monto_original|moneda }}{% else %}<span class="text-muted">Sin cuota generada</span>{% endif %}</td>
+  <td>{% if fila.estado == 'PAGADA' %}<span class="badge text-bg-success">Pagó</span>{% elif fila.estado == 'POR_VALIDAR' %}<span class="badge text-bg-warning">Comprobante por validar</span>{% else %}<span class="badge text-bg-danger">Pendiente</span>{% endif %}</td>
+  <td class="text-end">
+    {% if fila.estado != 'PAGADA' %}<a class="btn btn-sm btn-outline-success" href="{% url 'pago_efectivo' %}?casa={{ fila.casa.pk|unlocalize }}&mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar efectivo</a>{% endif %}
+    {% if fila.estado == 'POR_VALIDAR' %}<a class="btn btn-sm btn-primary" href="{% url 'comprobante_revisar' fila.comprobante.pk %}">Validar</a>{% elif fila.comprobante %}<a class="btn btn-sm btn-outline-primary" href="{% url 'comprobante_revisar' fila.comprobante.pk %}">Ver comprobante</a>{% endif %}
+  </td>
+</tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">No hay personas con residencia registrada. Use «Nuevo vecino y pago» para registrar el primero.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% else %}<div class="alert alert-warning">No tienes una residencial asignada.</div>{% endif %}
+{% endblock %}

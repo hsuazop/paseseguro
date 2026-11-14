@@ -1,0 +1,38 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const assert = require('node:assert/strict');
+const root = path.resolve(__dirname, '..');
+const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+
+(async () => {
+  const tools = readJSON(path.join(root, 'outputs/android-tools.json'));
+  const apk = readJSON(path.join(root, 'outputs/android/build-report.json'));
+  const serial = process.argv[2] || 'emulator-5556';
+  if (!serial.startsWith('emulator-')) throw new Error('This smoke test resets test-device logs and only supports an emulator.');
+  const adb = path.join(tools.SdkDirectory, 'platform-tools/adb.exe');
+  const run = args => execFileSync(adb, ['-s', serial, ...args], { encoding: 'utf8', windowsHide: true, timeout: 30000 });
+  console.log(run(['install', '-r', apk.apk]));
+  run(['logcat', '-c']);
+  run(['shell', 'am', 'force-stop', apk.packageId]);
+  run(['shell', 'am', 'force-stop', 'com.android.chrome']);
+  const launch = run(['shell', 'am', 'start', '-W', '-n', apk.packageId + '/.LauncherActivity']);
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  const crashes = run(['logcat', '-b', 'crash', '-d', '-v', 'brief']);
+  fs.writeFileSync(path.join(root, `outputs/android/crash-${apk.version}.txt`), crashes);
+  assert.ok(!crashes.includes('Process: ' + apk.packageId), 'Pase Seguro crashed after launch:\n' + crashes);
+  const warmLaunch = run(['shell', 'am', 'start', '-W', '-n', apk.packageId + '/.LauncherActivity']);
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  const warmCrashes = run(['logcat', '-b', 'crash', '-d', '-v', 'brief']);
+  assert.ok(!warmCrashes.includes('Process: ' + apk.packageId), 'Pase Seguro crashed after reopening:\n' + warmCrashes);
+  const screenshot = execFileSync(adb, ['-s', serial, 'exec-out', 'screencap', '-p'], { windowsHide: true, timeout: 15000 });
+  fs.writeFileSync(path.join(root, `outputs/android/launch-${apk.version}.png`), screenshot);
+  run(['shell', 'uiautomator', 'dump', '/sdcard/paseseguro-window.xml']);
+  const ui = run(['shell', 'cat', '/sdcard/paseseguro-window.xml']);
+  fs.writeFileSync(path.join(root, `outputs/android/launch-${apk.version}.xml`), ui);
+  const activities = run(['shell', 'dumpsys', 'activity', 'activities']);
+  const resumed = activities.split('\n').filter(line => /mResumedActivity|topResumedActivity/.test(line));
+  const report = { serial, version: apk.version, androidApi: run(['shell', 'getprop', 'ro.build.version.sdk']).trim(), apkInstalled: true, noApplicationCrash: true, coldStartPassed: true, warmStartPassed: true, resumedActivities: resumed, launch: launch.trim(), warmLaunch: warmLaunch.trim(), checkedAt: new Date().toISOString() };
+  fs.writeFileSync(path.join(root, 'outputs/android/runtime-verification.json'), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
+})().catch(error => { console.error(error); process.exitCode = 1; });

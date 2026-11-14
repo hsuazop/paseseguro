@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block title %}Iniciar sesión | Pase Seguro{% endblock %}
 {% block content %}
-<div class="row justify-content-center align-items-center min-vh-100 py-5">
+<div class="row justify-content-center align-items-center login-layout">
   <div class="col-12 col-sm-9 col-md-6 col-lg-4 col-xl-3">
-    <div class="text-center mb-4"><div class="display-5 text-primary"><i class="bi bi-shield-check"></i></div><h1 class="h3 fw-bold text-dark">Pase Seguro</h1><p class="text-muted">Administración de vigilancia residencial</p></div>
+    <div class="text-center mb-4"><img class="mb-3 rounded-4 shadow-sm" src="{% static 'core/brand/icon-192.png' %}" width="80" height="80" alt=""><h1 class="h3 fw-bold text-dark">Pase Seguro</h1><p class="text-muted">Administración de vigilancia residencial</p></div>
     <div class="card"><div class="card-body p-4">
       <h2 class="h5 mb-4">Iniciar sesión</h2>
       <form method="post">{% csrf_token %}

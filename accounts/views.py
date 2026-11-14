@@ -41,7 +41,9 @@ def cambiar_password_obligatorio(request):
 
 @roles_requeridos(*ROLES_GESTION)
 def usuarios_lista(request):
-    usuarios = User.objects.all().order_by("first_name", "last_name", "username")
+    usuarios = User.objects.all().prefetch_related("asignaciones_colonia__colonia").order_by(
+        "first_name", "last_name", "username"
+    )
     if not request.user.es_superadmin:
         permitidas = colonias_permitidas(request.user)
         usuarios = usuarios.filter(Q(asignaciones_colonia__colonia__in=permitidas) | Q(responsable__casas_actuales__colonia__in=permitidas)).distinct()
@@ -60,11 +62,18 @@ def usuarios_lista(request):
 @roles_requeridos(*ROLES_GESTION)
 def usuario_crear(request):
     colonias = colonias_permitidas(request.user).filter(activa=True)
-    form = UsuarioForm(request.POST or None, colonias_queryset=colonias)
-    if not request.user.es_superadmin:
-        form.fields["rol"].choices = [
-            choice for choice in User.Rol.choices if choice[0] in (User.Rol.GUARDIA, User.Rol.RESIDENTE)
-        ]
+    rol_solicitado = request.GET.get("rol", User.Rol.GUARDIA)
+    roles_operativos = (User.Rol.GUARDIA, User.Rol.TESORERO)
+    if rol_solicitado not in roles_operativos:
+        rol_solicitado = User.Rol.GUARDIA
+    form = UsuarioForm(
+        request.POST or None,
+        colonias_queryset=colonias,
+        initial={"rol": rol_solicitado},
+    )
+    form.fields["rol"].choices = [
+        choice for choice in User.Rol.choices if choice[0] in roles_operativos
+    ]
     if request.method == "POST" and form.is_valid():
         usuario = form.save()
         registrar_auditoria(
@@ -76,15 +85,26 @@ def usuario_crear(request):
         )
         messages.success(request, "Usuario creado correctamente.")
         return redirect("usuarios_lista")
-    return render(request, "core/formulario.html", {"form": form, "titulo": "Nuevo usuario", "volver": "usuarios_lista"})
+    return render(request, "accounts/usuario_form.html", {"form": form, "volver": "usuarios_lista"})
 
 
 @roles_requeridos(*ROLES_GESTION)
 def usuario_reset_password(request, pk):
-    usuario = get_object_or_404(User, pk=pk, rol=User.Rol.RESIDENTE)
+    usuario = get_object_or_404(
+        User,
+        pk=pk,
+        rol__in=(User.Rol.RESIDENTE, User.Rol.GUARDIA, User.Rol.TESORERO),
+    )
     if not request.user.es_superadmin:
         permitidas = colonias_permitidas(request.user)
-        if not usuario.responsable.casas_actuales.filter(colonia__in=permitidas).exists():
+        asignado = usuario.asignaciones_colonia.filter(colonia__in=permitidas, activa=True).exists()
+        from residentes.models import Responsable
+
+        residente_asignado = Responsable.objects.filter(
+            usuario=usuario,
+            casas_actuales__colonia__in=permitidas,
+        ).exists()
+        if not asignado and not residente_asignado:
             raise PermissionDenied
     password = None
     if request.method == "POST":

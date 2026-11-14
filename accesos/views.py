@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from accounts.models import User
-from accounts.permissions import ROLES_ACCESO, colonias_permitidas, roles_requeridos
+from accounts.permissions import ROLES_ACCESO, colonia_actual, colonias_permitidas, roles_requeridos
 from colonias.models import Casa
 from core.pagination import paginar
 from residentes.access import casa_del_residente
@@ -19,12 +19,7 @@ from .models import RegistroVehicular, Vehiculo
 
 
 def _colonia_operativa(request):
-    colonias = colonias_permitidas(request.user).filter(activa=True)
-    colonia_id = request.GET.get("colonia") or request.POST.get("colonia") or request.session.get("colonia_actual")
-    colonia = colonias.filter(pk=colonia_id).first() if colonia_id else colonias.first()
-    if colonia:
-        request.session["colonia_actual"] = colonia.pk
-    return colonias, colonia
+    return colonia_actual(request)
 
 
 @roles_requeridos(*ROLES_ACCESO)

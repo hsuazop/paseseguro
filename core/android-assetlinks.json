@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.paseseguro.app",
+      "sha256_cert_fingerprints": [
+        "DD:6D:C6:11:86:A1:70:B1:79:01:35:A3:5A:3E:E9:FB:43:30:C3:1B:96:0A:E7:7F:35:87:84:D9:CA:F6:08:90"
+      ]
+    }
+  }
+]

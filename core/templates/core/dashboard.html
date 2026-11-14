@@ -1,7 +1,7 @@
-{% extends 'base.html' %}{% load app_tags %}
+{% extends 'base.html' %}{% load app_tags l10n %}
 {% block title %}Control mensual | Pase Seguro{% endblock %}
 {% block content %}
-<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
+<div class="page-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
   <div>
     <h1 class="page-title">Control mensual de vigilancia</h1>
     <p class="page-subtitle">Seleccione la residencial y el período que desea revisar</p>
@@ -26,7 +26,7 @@
       </div>
       <div class="col-5 col-lg-2">
         <label class="form-label fw-semibold">Año</label>
-        <input class="form-control form-control-lg" name="anio" type="number" value="{{ anio }}" min="2020" max="2100">
+        <input class="form-control form-control-lg" name="anio" type="number" value="{{ anio|unlocalize }}" min="2020" max="2100">
       </div>
       <div class="col-12 col-lg-2"><button class="btn btn-primary btn-lg w-100"><i class="bi bi-search me-1"></i> Consultar</button></div>
     </form>
@@ -59,7 +59,7 @@
       <form action="{% url 'casas_lista' %}"><input type="hidden" name="colonia" value="{{ colonia.pk }}"><div class="input-group"><input class="form-control" name="q" placeholder="Casa, nombre o identidad"><button class="btn btn-primary" aria-label="Buscar"><i class="bi bi-search"></i></button></div></form>
     </div>
     <div class="table-responsive">
-      <table class="table align-middle mb-0">
+      <table data-mobile-cards class="table align-middle mb-0">
         <thead><tr><th>Residencia</th><th>Persona responsable</th><th>Estado del mes</th><th>Meses en mora</th><th>Saldo acumulado</th><th></th></tr></thead>
         <tbody>
         {% for cuenta in cuentas %}
@@ -88,7 +88,7 @@
 <div class="card">
   <div class="card-body">
     <div class="d-flex flex-column flex-sm-row justify-content-between gap-2 mb-3"><div><h2 class="h5 mb-1">Pagos aplicados a este mes</h2><p class="small text-muted mb-0">La fecha indica cuándo se recibió; el reporte permanece en {{ mes|nombre_mes }} {{ anio }}.</p></div><a class="btn btn-sm btn-outline-primary align-self-start" href="{% url 'reporte_pagos' %}?colonia={{ colonia.pk }}">Historial completo</a></div>
-    <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Recibo</th><th>Persona / residencia</th><th>Mes pagado</th><th>Fecha de pago</th><th>Monto aplicado</th><th></th></tr></thead><tbody>
+    <div class="table-responsive"><table data-mobile-cards class="table align-middle mb-0"><thead><tr><th>Recibo</th><th>Persona / residencia</th><th>Mes pagado</th><th>Fecha de pago</th><th>Monto aplicado</th><th></th></tr></thead><tbody>
       {% for aplicacion in aplicaciones_mes %}<tr><td>{{ aplicacion.pago.numero_recibo }}</td><td>{{ aplicacion.pago.responsable.nombre_completo }}<div class="small text-muted">{{ aplicacion.pago.casa.codigo }}</div></td><td><strong>{{ aplicacion.cuota_mensual.mes|nombre_mes }} {{ aplicacion.cuota_mensual.anio }}</strong></td><td>{{ aplicacion.pago.fecha_pago|date:'d/m/Y' }}</td><td>{{ aplicacion.monto_aplicado|moneda }}</td><td class="text-end"><a class="btn btn-sm btn-outline-primary" href="{% url 'pago_detalle' aplicacion.pago.pk %}">Ver</a></td></tr>
       {% empty %}<tr><td colspan="6" class="text-center text-muted py-4">No hay pagos aplicados a este período.</td></tr>{% endfor %}
     </tbody></table></div>

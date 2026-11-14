@@ -7,11 +7,12 @@ from .models import Responsable
 
 
 class ResponsableForm(forms.ModelForm):
+    correo = forms.EmailField(label="Correo electrónico", max_length=254, help_text="Dirección donde se enviarán los recibos.")
     crear_usuario = forms.BooleanField(required=False, initial=True, label="Crear usuario residente")
 
     class Meta:
         model = Responsable
-        fields = ("nombre_completo", "identidad", "telefono", "activo")
+        fields = ("nombre_completo", "identidad", "correo", "telefono", "activo")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -30,7 +31,7 @@ class AsignarResponsableForm(forms.Form):
 class PerfilResidenteForm(forms.Form):
     nombre = forms.CharField(max_length=150)
     apellido = forms.CharField(max_length=150, required=False)
-    correo = forms.EmailField(required=False)
+    correo = forms.EmailField(label="Correo electrónico", max_length=254, help_text="Dirección donde se enviarán los recibos.")
     telefono = forms.CharField(max_length=30, required=False)
     password_actual = forms.CharField(
         label="Contraseña actual",
@@ -55,7 +56,7 @@ class PerfilResidenteForm(forms.Form):
             self.initial.update(
                 nombre=usuario.first_name,
                 apellido=usuario.last_name,
-                correo=usuario.email,
+                correo=getattr(responsable, "correo", "") or usuario.email,
                 telefono=getattr(responsable, "telefono", ""),
             )
         aplicar_bootstrap(self)

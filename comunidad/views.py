@@ -5,7 +5,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from accounts.models import User
-from accounts.permissions import ROLES_FINANCIEROS, colonias_permitidas, roles_requeridos
+from accounts.permissions import ROLES_FINANCIEROS, fijar_colonia_formulario, colonias_permitidas, roles_requeridos
 from residentes.access import casa_del_residente
 
 from .forms import (
@@ -152,6 +152,7 @@ def solicitud_responder(request, pk):
 
 def _crear_catalogo(request, form_class, titulo, volver="bandeja_comunidad"):
     form = form_class(request.POST or None, request.FILES or None, colonias_queryset=colonias_permitidas(request.user))
+    fijar_colonia_formulario(form, request.user)
     if request.method == "POST" and form.is_valid():
         obj = form.save(commit=False)
         if hasattr(obj, "publicado_por_id"):

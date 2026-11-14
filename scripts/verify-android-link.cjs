@@ -1,0 +1,30 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+
+(async () => {
+  const root = path.resolve(__dirname, '..');
+  const output = path.join(root, 'outputs/android');
+  const identity = JSON.parse(fs.readFileSync(path.join(output, 'build-identity.json'), 'utf8'));
+  const apk = JSON.parse(fs.readFileSync(path.join(output, 'build-report.json'), 'utf8'));
+  const website = 'https://' + identity.host;
+  const url = website + '/.well-known/assetlinks.json';
+  const response = await fetch(url, { redirect: 'manual' });
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('content-type'), /application\/json/);
+  const statements = await response.json();
+  const statement = statements.find(item => item.target?.package_name === apk.packageId && item.relation.includes('delegate_permission/common.handle_all_urls'));
+  assert.ok(statement);
+  assert.ok(statement.target.sha256_cert_fingerprints.includes(apk.certificateSha256));
+  const api = new URL('https://digitalassetlinks.googleapis.com/v1/assetlinks:check');
+  api.searchParams.set('source.web.site', website);
+  api.searchParams.set('relation', 'delegate_permission/common.handle_all_urls');
+  api.searchParams.set('target.android_app.package_name', apk.packageId);
+  api.searchParams.set('target.android_app.certificate.sha256_fingerprint', apk.certificateSha256);
+  const google = await fetch(api);
+  const result = await google.json();
+  const report = { url, endpointVerified: true, certificateMatchesApk: true, googleStatus: google.status, googleLinked: result.linked === true, checkedAt: new Date().toISOString() };
+  fs.writeFileSync(path.join(output, 'domain-verification.json'), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
+  if (google.ok) assert.equal(result.linked, true, result.debugString);
+})().catch(error => { console.error(error); process.exitCode = 1; });

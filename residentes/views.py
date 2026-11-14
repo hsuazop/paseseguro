@@ -12,6 +12,7 @@ from accounts.models import User
 from accounts.permissions import ROLES_GESTION, colonias_permitidas, roles_requeridos
 from facturacion.models import AplicacionPago, CuotaMensual
 from facturacion.services import obtener_saldo_casa
+from django.utils import timezone
 from core.pagination import paginar
 
 from .access import casa_del_residente, responsable_del_usuario
@@ -77,7 +78,7 @@ def mi_cuenta(request):
     if request.user.rol != User.Rol.RESIDENTE and not request.user.es_superadmin:
         raise PermissionDenied
     responsable = _responsable_actual(request.user)
-    casas = responsable.casas_actuales.filter(activa=True).select_related("colonia")
+    casas = responsable.casas_actuales.filter(activa=True, colonia__in=colonias_permitidas(request.user)).select_related("colonia")
     resumen = [{"casa": casa, "saldo": obtener_saldo_casa(casa)} for casa in casas]
     if len(resumen) == 1:
         return redirect("portal_residente", casa_id=resumen[0]["casa"].pk)
@@ -94,7 +95,9 @@ def mi_cuenta_casa(request, casa_id):
         estado=CuotaMensual.Estado.ANULADA
     )
     cuotas_map = {c.mes: c for c in cuotas_qs}
-    cuotas = [{"numero": numero, "nombre": nombre, "cuota": cuotas_map.get(numero)} for numero, nombre in CuotaMensual.MESES]
+    hoy = timezone.localdate()
+    cuotas = [{"numero": numero, "nombre": nombre, "cuota": cuotas_map.get(numero),
+               "futura": (anio, numero) > (hoy.year, hoy.month)} for numero, nombre in CuotaMensual.MESES]
     saldo_total = obtener_saldo_casa(casa)
     pagado_anio = AplicacionPago.objects.filter(
         cuota_mensual__responsable=responsable,
@@ -168,12 +171,13 @@ def configurar_perfil(request, casa_id):
         request.user.last_name = form.cleaned_data["apellido"]
         request.user.email = form.cleaned_data["correo"]
         responsable.telefono = form.cleaned_data["telefono"]
+        responsable.correo = form.cleaned_data["correo"]
         responsable.nombre_completo = request.user.get_full_name() or responsable.nombre_completo
         nueva = form.cleaned_data.get("password_nueva")
         if nueva:
             request.user.set_password(nueva)
         request.user.save()
-        responsable.save(update_fields=("telefono", "nombre_completo", "updated_at"))
+        responsable.save(update_fields=("telefono", "correo", "nombre_completo", "updated_at"))
         if nueva:
             update_session_auth_hash(request, request.user)
         messages.success(request, "Tu información fue actualizada.")

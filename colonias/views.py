@@ -4,7 +4,7 @@ from django.db.models import Count, F, Q, Sum
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import User, UsuarioColonia
-from accounts.permissions import ROLES_GESTION, ROLES_FINANCIEROS, colonias_permitidas, roles_requeridos
+from accounts.permissions import ROLES_GESTION, ROLES_FINANCIEROS, filtro_colonia, colonias_permitidas, roles_requeridos
 from core.models import registrar_auditoria
 from core.pagination import paginar
 from facturacion.models import CuotaMensual
@@ -56,7 +56,7 @@ def colonia_editar(request, pk):
 def casas_lista(request):
     casas = Casa.objects.filter(colonia__in=colonias_permitidas(request.user)).select_related("colonia", "responsable_actual")
     buscar = request.GET.get("q", "").strip()
-    colonia_id = request.GET.get("colonia", "")
+    colonia_id = filtro_colonia(request)
     if buscar:
         casas = casas.filter(
             Q(codigo__icontains=buscar) | Q(numero__icontains=buscar)
