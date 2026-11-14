@@ -1,0 +1,6 @@
+{% extends "admin/index.html" %}
+{% block content %}
+<section class="admin-welcome" aria-labelledby="welcome-title"><h2 id="welcome-title">Todo tu sistema, en un solo lugar</h2><p>Selecciona una sección para consultar o administrar sus registros. Cada listado incluye búsqueda y filtros.</p><a href="{{ site_url }}">Abrir panel operativo →</a></section>
+{% if summary_cards %}<div class="admin-summary">{% for card in summary_cards %}<a href="{{ card.url }}"><span>{{ card.title }}</span><strong>{{ card.total }}</strong></a>{% endfor %}</div>{% endif %}
+{{ block.super }}
+{% endblock %}
