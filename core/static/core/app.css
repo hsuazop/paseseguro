@@ -25,7 +25,7 @@ body { background: var(--canvas); color: #203040; font-family: Inter, system-ui,
 .mobile-payment-bar { position: sticky; bottom: 0; z-index: 20; background: rgba(255,255,255,.96); border-top: 1px solid var(--line); margin: 1rem -1rem -1rem; padding: .8rem 1rem; backdrop-filter: blur(8px); }
 .property-card { transition: transform .15s ease, box-shadow .15s ease; }
 .property-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(31,55,80,.12); }
-@media (min-width: 992px) {
+@media (min-width: 1400px) {
   .app-sidebar { position: fixed; top: 64px; bottom: 0; width: 260px; border-right: 1px solid var(--line); visibility: visible !important; transform: none !important; }
   .app-main { margin-left: 260px; }
 }

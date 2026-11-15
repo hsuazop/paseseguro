@@ -55,22 +55,33 @@
     });
   });
 
-  document.querySelectorAll('.app-sidebar .nav-link, .resident-bottom-nav a').forEach(link => {
-    const path = new URL(link.href).pathname;
-    if (path === window.location.pathname || (path === '/dashboard/' && window.location.pathname === '/')) {
+  document.querySelectorAll('.app-sidebar nav, .app-mobile-nav, .resident-bottom-nav').forEach(nav => {
+    const current = window.location.pathname === '/' ? '/dashboard/' : window.location.pathname;
+    const matches = Array.from(nav.querySelectorAll('a[href]')).filter(link => {
+      const path = new URL(link.href).pathname;
+      return path === current || (!link.hasAttribute('data-nav-exact') && current.startsWith(path));
+    }).sort((a, b) => new URL(b.href).pathname.length - new URL(a.href).pathname.length);
+    const link = matches[0];
+    if (link) {
       link.classList.add('active');
-      link.setAttribute('aria-current', 'page');
+      link.setAttribute('aria-current', new URL(link.href).pathname === current ? 'page' : 'location');
     }
   });
 
   const sidebar = document.getElementById('sidebar');
-  const toggle = document.querySelector('.menu-toggle');
-  if (sidebar && toggle) {
-    sidebar.addEventListener('show.bs.offcanvas', () => toggle.setAttribute('aria-expanded', 'true'));
-    sidebar.addEventListener('hide.bs.offcanvas', () => toggle.setAttribute('aria-expanded', 'false'));
+  const toggles = document.querySelectorAll('[data-bs-target="#sidebar"]:not([data-bs-dismiss])');
+  if (sidebar) {
+    sidebar.addEventListener('show.bs.offcanvas', () => toggles.forEach(toggle => toggle.setAttribute('aria-expanded', 'true')));
+    sidebar.addEventListener('hide.bs.offcanvas', () => toggles.forEach(toggle => toggle.setAttribute('aria-expanded', 'false')));
   }
 
-  document.querySelectorAll('table[data-mobile-cards]').forEach(table => {
+  document.querySelectorAll('main .table-responsive').forEach(region => {
+    region.tabIndex = 0;
+    region.setAttribute('role', 'region');
+    region.setAttribute('aria-label', 'Listado; desplaza horizontalmente si es necesario');
+  });
+
+  document.querySelectorAll('table[data-mobile-cards], main .table-responsive > table:not([data-mobile-scroll])').forEach(table => {
     const headers = Array.from(table.tHead?.rows[0]?.cells || []);
     const rows = Array.from(table.tBodies).flatMap(body => Array.from(body.rows));
     // Grouped headers and spanning data cells keep their horizontal table layout.
