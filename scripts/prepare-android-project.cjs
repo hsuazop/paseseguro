@@ -61,6 +61,17 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   fs.writeFileSync(path.join(directory, 'local.properties'), 'sdk.dir=' + sdkPath.replace(/:/g, '\\:') + '\n');
   fs.writeFileSync(path.join(directory, '.gitignore'), '.gradle/\n**/build/\nlocal.properties\n*.keystore\n*.jks\n*.apk\n*.aab\n');
   const assetlinks = [{ relation: ['delegate_permission/common.handle_all_urls'], target: { namespace: 'android_app', package_name: packageId, sha256_cert_fingerprints: [fingerprint] } }];
+  const existingLinks = path.join(root, 'core/android-assetlinks.json');
+  if (fs.existsSync(existingLinks)) {
+    for (const statement of readJSON(existingLinks)) {
+      if (statement.target?.package_name === packageId) {
+        assetlinks[0].target.sha256_cert_fingerprints = [...new Set([
+          ...assetlinks[0].target.sha256_cert_fingerprints,
+          ...(statement.target.sha256_cert_fingerprints || []),
+        ])];
+      }
+    }
+  }
   fs.writeFileSync(path.join(directory, 'assetlinks.json'), JSON.stringify(assetlinks, null, 2));
   fs.writeFileSync(path.join(root, 'core/android-assetlinks.json'), JSON.stringify(assetlinks, null, 2) + '\n');
   fs.mkdirSync(path.join(root, 'outputs/android'), { recursive: true });
