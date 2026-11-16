@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title mb-3">SOS · Casa {{ alerta.casa.codigo }}</h1>
+<div class="card"><div class="card-body">
+<span class="badge text-bg-danger">{{ alerta.get_estado_display }}</span>
+<h2 class="h4 mt-3">{{ alerta.usuario.nombre_completo }}</h2>
+<dl><dt>Residencial</dt><dd>{{ alerta.colonia.nombre }}</dd><dt>Casa y número</dt><dd>{{ alerta.casa.codigo }} · {{ alerta.casa.numero }}</dd><dt>Bloque y calle</dt><dd>{{ alerta.casa.bloque|default:'No registrado' }} · {{ alerta.casa.calle|default:'No registrada' }}</dd><dt>Referencia</dt><dd>{{ alerta.casa.referencia|default:'No registrada' }}</dd><dt>Fecha</dt><dd>{{ alerta.created_at|date:'d/m/Y H:i:s' }}</dd><dt>Mensaje</dt><dd>{{ alerta.mensaje|linebreaksbr }}</dd></dl>
+{% if alerta.atendido_por %}<p>Atiende: <strong>{{ alerta.atendido_por.nombre_completo }}</strong> desde {{ alerta.atendido_en|date:'d/m/Y H:i' }}.</p>{% endif %}
+<form method="post">{% csrf_token %}{% if alerta.estado == 'NUEVA' %}<button name="accion" value="atender" class="btn btn-danger btn-lg">Voy a atender esta emergencia</button>{% elif alerta.estado == 'ATENDIENDO' and alerta.atendido_por_id == user.pk %}<button name="accion" value="cerrar" class="btn btn-success">Marcar como atendida y cerrar</button>{% endif %}</form>
+<a class="btn btn-outline-secondary mt-3" href="{% url 'sos_guardia' %}">Volver a emergencias</a>
+</div></div>
+{% endblock %}

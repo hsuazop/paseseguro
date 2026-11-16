@@ -2,6 +2,30 @@ from django.contrib import admin
 from core.admin_utils import BaseAdmin
 
 from .models import AlertaSOS, Clasificado, Comunicado, DirectorioEntrada, DocumentoComunidad, SolicitudMensaje
+from .models import SuscripcionPush, EntregaSOS
+
+
+class PushReadOnlyAdmin(admin.ModelAdmin):
+    def has_add_permission(self, request):
+        return False
+    def has_change_permission(self, request, obj=None):
+        return False
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(SuscripcionPush)
+class SuscripcionPushAdmin(PushReadOnlyAdmin):
+    list_display = ('id', 'usuario', 'activa', 'actualizada')
+    search_fields = ('usuario__username',)
+    exclude = ('datos', 'session_key', 'endpoint_hash')
+
+
+@admin.register(EntregaSOS)
+class EntregaSOSAdmin(PushReadOnlyAdmin):
+    list_display = ('id', 'alerta', 'estado', 'intentos', 'siguiente', 'codigo_error')
+    search_fields = ('alerta__casa__codigo', 'suscripcion__usuario__username')
+    list_filter = ('estado',)
 
 
 @admin.register(SolicitudMensaje)

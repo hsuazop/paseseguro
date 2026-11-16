@@ -28,7 +28,7 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
     child.on('exit', code => code === 0 ? resolve(output) : reject(new Error(path.basename(command) + ' failed (' + code + '):\n' + output)));
     child.stdin.end();
   });
-  await run(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'gradlew.bat', 'assembleRelease', '--no-daemon', '--console=plain']);
+  await run(process.env.ComSpec || 'cmd.exe', ['/d', '/c', 'gradlew.bat', 'assembleRelease', 'bundleRelease', '--no-daemon', '--console=plain']);
   const buildTools = path.join(tools.SdkDirectory, 'build-tools/35.0.0');
   const unsigned = path.join(project, 'app/build/outputs/apk/release/app-release-unsigned.apk');
   const aligned = path.join(project, 'app-release-aligned.apk');
@@ -50,6 +50,15 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   fs.writeFileSync(path.join(output, 'signature-verification.txt'), verification);
   fs.writeFileSync(path.join(output, 'apk-details.txt'), badging);
   const report = { apk: file, packageId: identity.packageId, version: identity.version, versionCode: identity.versionCode, bytes: fs.statSync(file).size, apkSha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), certificateSha256: identity.fingerprint, signatureVerified: true, zipAlignmentVerified: true, minimumAndroidApi: badging.match(/sdkVersion:'(\d+)'/)?.[1], targetAndroidApi: badging.match(/targetSdkVersion:'(\d+)'/)?.[1] };
+  const bundle = path.join(project, 'app/build/outputs/bundle/release/app-release.aab');
+  const bundleOutput = path.join(output, `PaseSeguro-${identity.version}.aab`);
+  fs.copyFileSync(bundle, bundleOutput);
+  await run(path.join(tools.JdkDirectory, 'bin/jarsigner.exe'), ['-keystore', signing.keystorePath, '-storepass:env', 'PASESEGURO_KEYSTORE_PASSWORD', '-keypass:env', 'PASESEGURO_KEY_PASSWORD', bundleOutput, signing.alias], true);
+  const bundleVerification = await run(path.join(tools.JdkDirectory, 'bin/jarsigner.exe'), ['-verify', bundleOutput], true);
+  if (!bundleVerification.includes('jar verified')) throw new Error('AAB signature verification failed');
+  report.aab = bundleOutput;
+  report.aabSha256 = crypto.createHash('sha256').update(fs.readFileSync(bundleOutput)).digest('hex');
+  report.aabSignatureVerified = true;
   fs.writeFileSync(path.join(output, 'build-report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
 })().catch(error => { console.error(error); process.exitCode = 1; });

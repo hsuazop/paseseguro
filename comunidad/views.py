@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.db import transaction
 
 from accounts.models import User
 from accounts.permissions import ROLES_FINANCIEROS, fijar_colonia_formulario, colonias_permitidas, roles_requeridos
@@ -70,8 +71,11 @@ def alerta_sos(request, casa_id):
         alerta.casa = casa
         alerta.colonia = casa.colonia
         alerta.usuario = request.user
-        alerta.save()
-        messages.success(request, "Alerta enviada. El personal autorizado ya puede verla.")
+        from .push import encolar
+        with transaction.atomic():
+            alerta.save()
+            encolar(alerta)
+        messages.success(request, "SOS registrado. Los guardias pueden verlo en su bandeja; se notificará a los dispositivos habilitados. Si existe peligro inmediato, utiliza también el canal de emergencia de tu residencial.")
         return redirect("portal_residente", casa_id=casa.pk)
     return render(request, "comunidad/sos.html", {"casa": casa, "form": form})
 

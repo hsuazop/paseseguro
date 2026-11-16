@@ -61,6 +61,8 @@ class AlertaSOS(TimeStampedModel):
     mensaje = models.TextField()
     adjunto = models.FileField(upload_to="comunidad/sos/%Y/%m/", blank=True)
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.NUEVA)
+    atendido_por = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='sos_atendidos')
+    atendido_en = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ("-created_at",)
@@ -69,6 +71,27 @@ class AlertaSOS(TimeStampedModel):
 
     def __str__(self):
         return f"SOS {self.casa} - {self.created_at:%d/%m/%Y %H:%M}"
+
+
+class SuscripcionPush(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    session_key = models.CharField(max_length=40)
+    endpoint_hash = models.CharField(max_length=64, unique=True)
+    datos = models.JSONField()
+    activa = models.BooleanField(default=True)
+    actualizada = models.DateTimeField(auto_now=True)
+
+
+class EntregaSOS(models.Model):
+    alerta = models.ForeignKey(AlertaSOS, on_delete=models.CASCADE)
+    suscripcion = models.ForeignKey(SuscripcionPush, on_delete=models.CASCADE)
+    intentos = models.PositiveSmallIntegerField(default=0)
+    siguiente = models.DateTimeField(default=timezone.now)
+    estado = models.CharField(max_length=16, default='PENDIENTE')
+    codigo_error = models.CharField(max_length=40, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['alerta', 'suscripcion'], name='sos_dispositivo_unico')]
 
 
 class Comunicado(TimeStampedModel):

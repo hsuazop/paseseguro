@@ -197,3 +197,7 @@ USE_THOUSAND_SEPARATOR = True
 # Bootstrap names its error variant "danger".
 MESSAGE_TAGS = {40: 'danger'}
 CSRF_FAILURE_VIEW = 'core.errors.csrf_failure'
+
+WEBPUSH_PUBLIC_KEY = os.environ.get('WEBPUSH_PUBLIC_KEY', '')
+WEBPUSH_PRIVATE_KEY = os.environ.get('WEBPUSH_PRIVATE_KEY', '')
+WEBPUSH_SUBJECT = os.environ.get('WEBPUSH_SUBJECT', '')

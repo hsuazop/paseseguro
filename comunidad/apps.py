@@ -6,3 +6,6 @@ class ComunidadConfig(AppConfig):
     name = "comunidad"
     verbose_name = "Comunidad"
 
+    def ready(self):
+        from . import signals
+

@@ -1,0 +1,5 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title mb-3">Emergencias SOS</h1>
+{% for item in alertas %}<article class="card mb-3"><div class="card-body"><span class="badge text-bg-danger">{{ item.get_estado_display }}</span><h2 class="h5 mt-2">Casa {{ item.casa.codigo }} · {{ item.usuario.nombre_completo }}</h2><p>{{ item.colonia.nombre }} · {{ item.created_at|date:'d/m/Y H:i' }}</p><a class="btn btn-danger" href="{% url 'sos_guardia_detalle' item.pk %}">Ver y atender</a></div></article>{% empty %}<p>No hay emergencias pendientes.</p>{% endfor %}
+{% endblock %}

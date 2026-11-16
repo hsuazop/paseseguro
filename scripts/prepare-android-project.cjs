@@ -49,7 +49,7 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   if (!fs.readFileSync(keyFile).equals(fs.readFileSync(path.join(locations.BackupDirectory, 'paseseguro.keystore')))) throw new Error('Signing backup verification failed.');
 
   const original = await TwaManifest.fromWebManifest(`https://${host}/manifest.webmanifest`);
-  const twa = new TwaManifest({ ...original.toJson(), packageId, host, name: 'Pase Seguro', launcherName: 'Pase Seguro', appVersion, appVersionCode, minSdkVersion: 24, signingKey: { path: keyFile, alias: info.alias }, fingerprints: [{ name: 'Pase Seguro release', value: fingerprint }], generatorApp: 'bubblewrap-cli', display: 'standalone', orientation: 'any', enableNotifications: false, enableSiteSettingsShortcut: false, fallbackType: 'customtabs', navigationColor: '#153b63', navigationColorDark: '#153b63', themeColorDark: '#153b63', backgroundColor: '#f4f7fb' });
+  const twa = new TwaManifest({ ...original.toJson(), packageId, host, name: 'Pase Seguro', launcherName: 'Pase Seguro', appVersion, appVersionCode, minSdkVersion: 24, signingKey: { path: keyFile, alias: info.alias }, fingerprints: [{ name: 'Pase Seguro release', value: fingerprint }], generatorApp: 'bubblewrap-cli', display: 'standalone', orientation: 'any', enableNotifications: true, enableSiteSettingsShortcut: false, fallbackType: 'customtabs', navigationColor: '#153b63', navigationColorDark: '#153b63', themeColorDark: '#153b63', backgroundColor: '#f4f7fb' });
   const manifestFile = path.join(directory, 'twa-manifest.json');
   await twa.saveToFile(manifestFile);
   await new TwaGenerator().createTwaProject(directory, twa, new ConsoleLog('PaseSeguro'), (done, total) => console.log(`Android project: ${done}/${total}`));

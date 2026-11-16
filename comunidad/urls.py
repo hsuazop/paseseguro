@@ -1,9 +1,17 @@
 from django.urls import path
 
 from . import views
+from . import push_views
 
 
 urlpatterns = [
+    path('service-worker.js', push_views.servicio_worker, name='service_worker'),
+    path('push/config/', push_views.configuracion),
+    path('push/suscribir/', push_views.suscribir),
+    path('push/desactivar/', push_views.desactivar),
+    path('guardia/sos/', push_views.lista, name='sos_guardia'),
+    path('guardia/sos/<int:pk>/', push_views.detalle, name='sos_guardia_detalle'),
+    path('guardia/sos/<int:pk>/datos/', push_views.datos_alerta),
     path("mi-cuenta/<int:casa_id>/solicitudes/", views.solicitudes_lista, name="solicitudes_lista"),
     path("mi-cuenta/<int:casa_id>/solicitudes/nueva/", views.solicitud_crear, name="solicitud_crear"),
     path("mi-cuenta/<int:casa_id>/comunidad/", views.comunidad_muro, name="comunidad_muro"),
