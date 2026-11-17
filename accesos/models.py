@@ -7,6 +7,40 @@ from django.utils import timezone
 from core.models import TimeStampedModel
 
 
+class VehiculoColonia(TimeStampedModel):
+    """Independent census: the only relationship is the residential community."""
+    colonia = models.ForeignKey('colonias.Colonia', on_delete=models.PROTECT, related_name='padron_vehicular')
+    placa = models.CharField(max_length=80, blank=True, db_index=True)
+    propietario = models.CharField('nombre del propietario', max_length=250, blank=True)
+    telefono = models.CharField('teléfono', max_length=150, blank=True)
+    marca_modelo = models.CharField('marca / modelo', max_length=250, blank=True)
+    color = models.CharField(max_length=100, blank=True)
+    direccion = models.TextField('dirección / apartamento', blank=True)
+    observaciones = models.TextField(blank=True)
+    revisar = models.BooleanField('pendiente de revisar', default=False)
+    activo = models.BooleanField(default=True)
+    origen = models.JSONField(default=dict, blank=True, editable=False)
+    clave_importacion = models.CharField(max_length=64, blank=True, editable=False)
+
+    class Meta:
+        ordering = ('placa', 'propietario', 'pk')
+        verbose_name = 'vehículo de residencial'
+        verbose_name_plural = 'padrón vehicular de residenciales'
+        constraints = [models.UniqueConstraint(fields=('colonia', 'clave_importacion'), condition=~models.Q(clave_importacion=''), name='vehiculo_colonia_origen_unico')]
+
+    def clean(self):
+        self.placa = ''.join(self.placa.upper().split())
+        if not any((self.placa, self.propietario.strip(), self.marca_modelo.strip())):
+            raise ValidationError('Indica al menos placa, propietario o marca / modelo.')
+
+    def save(self, *args, **kwargs):
+        self.placa = ''.join(self.placa.upper().split())
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.placa or "Sin placa"} · {self.propietario or self.marca_modelo}'
+
+
 class Vehiculo(TimeStampedModel):
     class Tipo(models.TextChoices):
         AUTOMOVIL = "AUTOMOVIL", "Automóvil"

@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title mb-3">{% if registro.pk %}Editar vehículo{% else %}Registrar vehículo{% endif %}</h1>
+<div class="card"><div class="card-body"><form method="post">{% csrf_token %}{{ form.non_field_errors }}{% for field in form %}<div class="mb-3">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<small>{{ field.help_text }}</small>{% endif %}</div>{% endfor %}<button class="btn btn-primary">Guardar registro</button> <a class="btn btn-outline-secondary" href="{% url 'padron_vehicular' %}">Volver</a></form></div></div>
+{% if registro.origen %}<div class="card mt-3"><div class="card-body"><h2 class="h5">Datos originales del Excel</h2><p>{{ registro.origen.archivo }} · {{ registro.origen.hoja }} · Fila {{ registro.origen.fila }}</p><dl>{% for columna, valor in registro.origen.celdas.items %}<dt>{{ columna }}</dt><dd>{{ valor|default_if_none:'—' }}</dd>{% endfor %}</dl></div></div>{% endif %}
+{% endblock %}

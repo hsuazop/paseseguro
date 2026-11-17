@@ -2,7 +2,18 @@ from django import forms
 
 from core.forms import aplicar_bootstrap
 
-from .models import RegistroVehicular, Vehiculo
+from .models import RegistroVehicular, Vehiculo, VehiculoColonia
+
+
+class VehiculoColoniaForm(forms.ModelForm):
+    class Meta:
+        model = VehiculoColonia
+        fields = ('colonia', 'placa', 'propietario', 'telefono', 'marca_modelo', 'color', 'direccion', 'observaciones', 'revisar', 'activo')
+        widgets = {'direccion': forms.Textarea(attrs={'rows': 2}), 'observaciones': forms.Textarea(attrs={'rows': 3})}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        aplicar_bootstrap(self)
 
 
 class VehiculoForm(forms.ModelForm):

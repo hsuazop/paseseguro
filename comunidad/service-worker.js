@@ -5,9 +5,19 @@ self.addEventListener('activate', event => event.waitUntil(self.clients.claim())
 self.addEventListener('push', event => {
   event.waitUntil((async () => {
     try {
-      const id = event.data?.json()?.alerta;
+      const payload = event.data?.json();
+      if (payload?.tipo === 'prueba') {
+        await self.registration.showNotification('Pase Seguro · Prueba de notificación', {
+          body:'Prueba de aviso y vibración. No es una emergencia.', tag:'sos-prueba',
+          renotify:true, vibrate:[500,200,500,200,800],
+          icon:'/static/core/brand/icon-192.png', data:{url:'/guardia/sos/'}
+        });
+        return;
+      }
+      const id = payload?.alerta;
       if (!Number.isSafeInteger(id)) return;
       const response = await fetch(`/guardia/sos/${id}/datos/`, {credentials:'same-origin',cache:'no-store',redirect:'error'});
+      if (response.status >= 500) throw Error('Servidor temporalmente no disponible');
       if (!response.ok) return;
       const data = await response.json();
       if (!data.active) return;
@@ -18,7 +28,13 @@ self.addEventListener('push', event => {
       });
       for (const client of await self.clients.matchAll({type:'window'})) client.postMessage({type:'sos',id});
     } catch (_) {
-      // No personal information is exposed without a fresh authorization check.
+      // A temporary network failure must not silently swallow an emergency.
+      // Never include personal information without a fresh authorization check.
+      await self.registration.showNotification('Pase Seguro · Revisar emergencias', {
+        body:'Llegó un aviso. Abre la bandeja SOS para comprobarlo cuando tengas conexión.',
+        tag:'sos-conexion', renotify:true, vibrate:[500,200,500,200,800],
+        icon:'/static/core/brand/icon-192.png', data:{url:'/guardia/sos/'}
+      });
     }
   })());
 });

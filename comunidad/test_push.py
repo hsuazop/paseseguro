@@ -74,6 +74,35 @@ class SOSPushTests(TestCase):
         c=Client(enforce_csrf_checks=True);c.force_login(self.guardia)
         self.assertEqual(c.post('/push/suscribir/',self.payload,content_type='application/json').status_code,403)
 
+    @override_settings(WEBPUSH_PRIVATE_KEY='test', WEBPUSH_PUBLIC_KEY='test', WEBPUSH_SUBJECT='mailto:test@example.com')
+    @patch('pywebpush.webpush')
+    def test_prueba_solo_dispositivo_propio_sin_crear_sos(self, send):
+        data = {'endpoint': self.payload['endpoint']}
+        before = AlertaSOS.objects.count()
+        self.assertEqual(self.guard.post('/push/probar/', data, content_type='application/json').status_code, 200)
+        self.assertEqual(send.call_args.kwargs['data'], '{"tipo": "prueba"}')
+        self.assertEqual(AlertaSOS.objects.count(), before)
+        self.assertEqual(self.guard.post('/push/probar/', data, content_type='application/json').status_code, 429)
+        send.assert_called_once()
+
+    @override_settings(WEBPUSH_PRIVATE_KEY='test', WEBPUSH_PUBLIC_KEY='test', WEBPUSH_SUBJECT='mailto:test@example.com')
+    @patch('pywebpush.webpush')
+    def test_prueba_no_envia_a_otro_dispositivo_o_sesion(self, send):
+        data = {'endpoint': self.payload['endpoint']}
+        other = Client(); other.force_login(self.guardia)
+        self.assertEqual(other.post('/push/probar/', data, content_type='application/json').status_code, 403)
+        self.assertEqual(self.guard.post('/push/probar/', {'endpoint': 'https://example.com/'}, content_type='application/json').status_code, 403)
+        self.client.force_login(self.residente)
+        self.assertEqual(self.client.post('/push/probar/', data, content_type='application/json').status_code, 403)
+        send.assert_not_called()
+
+    @override_settings(WEBPUSH_PRIVATE_KEY='test', WEBPUSH_PUBLIC_KEY='test', WEBPUSH_SUBJECT='mailto:test@example.com')
+    @patch('pywebpush.webpush', side_effect=TimeoutError)
+    def test_prueba_informa_fallo_del_proveedor(self, send):
+        response = self.guard.post('/push/probar/', {'endpoint': self.payload['endpoint']}, content_type='application/json')
+        self.assertEqual(response.status_code, 502)
+        self.assertIn('error', response.json())
+
     @override_settings(WEBPUSH_PRIVATE_KEY='test',WEBPUSH_PUBLIC_KEY='test',WEBPUSH_SUBJECT='mailto:test@example.com')
     @patch('pywebpush.webpush')
     def test_proveedor_acepta_no_equivale_a_atendida(self,send):

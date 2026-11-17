@@ -61,6 +61,44 @@ def desactivar(request):
     return JsonResponse({'ok':True})
 
 
+@roles_requeridos('GUARDIA')
+@require_POST
+def probar(request):
+    """Send only to the requesting device; never create a real emergency."""
+    from pywebpush import webpush
+    from .push import habilitada
+    if not all((settings.WEBPUSH_PRIVATE_KEY, settings.WEBPUSH_PUBLIC_KEY, settings.WEBPUSH_SUBJECT)):
+        return JsonResponse({'error': 'El servidor no tiene configurado el envío push.'}, status=503)
+    try:
+        if len(request.body) > 5000:
+            raise ValueError()
+        endpoint = json.loads(request.body)['endpoint']
+        digest = hashlib.sha256(endpoint.encode()).hexdigest()
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return JsonResponse({'error': 'Activa primero las notificaciones en este dispositivo.'}, status=400)
+    sub = SuscripcionPush.objects.filter(endpoint_hash=digest, usuario=request.user,
+                                        session_key=request.session.session_key, activa=True).first()
+    colonia = colonias_permitidas(request.user).first()
+    if not sub or not colonia or not habilitada(sub, colonia.pk):
+        return JsonResponse({'error': 'Activa las notificaciones con una cuenta de guardia asignada a una residencial.'}, status=403)
+    now = timezone.now().timestamp()
+    if now - request.session.get('push_prueba_en', 0) < 30:
+        return JsonResponse({'error': 'Espera 30 segundos antes de repetir la prueba.'}, status=429)
+    request.session['push_prueba_en'] = now
+    try:
+        webpush(subscription_info=sub.datos, data=json.dumps({'tipo': 'prueba'}),
+                vapid_private_key=settings.WEBPUSH_PRIVATE_KEY,
+                vapid_claims={'sub': settings.WEBPUSH_SUBJECT}, ttl=60,
+                headers={'Urgency': 'high'}, timeout=10)
+    except Exception as exc:
+        code = getattr(getattr(exc, 'response', None), 'status_code', None)
+        if code in (404, 410):
+            sub.activa = False
+            sub.save(update_fields=['activa'])
+        return JsonResponse({'error': 'No se pudo enviar la prueba. Desactiva y vuelve a activar las notificaciones e inténtalo nuevamente.'}, status=502)
+    return JsonResponse({'ok': True, 'mensaje': 'Prueba aceptada por el proveedor. Comprueba que aparece el aviso y que vibra tu teléfono; esto no crea un SOS.'})
+
+
 def alertas_usuario(user):
     return AlertaSOS.objects.filter(colonia__in=colonias_permitidas(user)).select_related('usuario','casa','colonia','atendido_por')
 

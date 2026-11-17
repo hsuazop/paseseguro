@@ -9,6 +9,7 @@ urlpatterns = [
     path('push/config/', push_views.configuracion),
     path('push/suscribir/', push_views.suscribir),
     path('push/desactivar/', push_views.desactivar),
+    path('push/probar/', push_views.probar),
     path('guardia/sos/', push_views.lista, name='sos_guardia'),
     path('guardia/sos/<int:pk>/', push_views.detalle, name='sos_guardia_detalle'),
     path('guardia/sos/<int:pk>/datos/', push_views.datos_alerta),

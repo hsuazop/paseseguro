@@ -6,7 +6,9 @@
  const csrf=panel.querySelector('[name=csrfmiddlewaretoken]').value;
  const api=async(url,data)=>{
   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':csrf},body:JSON.stringify(data),credentials:'same-origin',redirect:'error'});
-  if(!r.ok) throw Error('No se pudo registrar el dispositivo. Intenta nuevamente.');
+  const result=await r.json();
+  if(!r.ok) throw Error(result.error || 'No se pudo registrar el dispositivo. Intenta nuevamente.');
+  return result;
  };
  const supported='serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window && window.isSecureContext;
  if(!supported){status.textContent='Este navegador no permite push. Usa Chrome actualizado en Android y conexión HTTPS.';button.disabled=true;}
@@ -24,6 +26,18 @@
   status.textContent='Notificaciones habilitadas para esta sesión. Revisa sonido y vibración en Android.';
  };
  button.addEventListener('click',async()=>{button.disabled=true;try{await bind(true)}catch(e){status.textContent=e.message}finally{button.disabled=false}});
+ const testButton=panel.querySelector('[data-push-test]');
+ testButton.disabled=!supported;
+ testButton.addEventListener('click',async()=>{
+  testButton.disabled=true;
+  try{
+   const reg=await navigator.serviceWorker.getRegistration('/');
+   const sub=await reg?.pushManager.getSubscription();
+   if(!sub || Notification.permission!=='granted') throw Error('Activa primero las notificaciones SOS.');
+   const result=await api('/push/probar/',{endpoint:sub.endpoint});
+   status.textContent=result.mensaje;
+  }catch(e){status.textContent=e.message}finally{testButton.disabled=false}
+ });
  panel.querySelector('[data-push-disable]').addEventListener('click',async()=>{
   try{await api('/push/desactivar/',{});const reg=await navigator.serviceWorker.getRegistration('/');const sub=await reg?.pushManager.getSubscription();await sub?.unsubscribe();reg?.active?.postMessage({type:'clear-sos'});status.textContent='Notificaciones desactivadas en este dispositivo.';}catch(e){status.textContent=e.message}
  });

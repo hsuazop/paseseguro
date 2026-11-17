@@ -87,6 +87,14 @@ ha enviado esta app a Play Console por el solo hecho de compilar un AAB.
 
 ## Prueba de aceptación en dos teléfonos
 
+Antes de emitir un SOS, el guardia puede pulsar **Probar aviso y vibración**.
+Envía un push real exclusivamente al dispositivo y sesión que lo solicita, sin
+crear una emergencia ni avisar a los demás guardias. Requiere activar primero
+las notificaciones y permite una prueba cada 30 segundos. El mensaje de éxito
+indica aceptación del proveedor: comprobar visualmente la llegada al teléfono.
+Si falla la conexión al consultar una alerta recibida, se muestra un aviso
+general sin datos personales para abrir la bandeja cuando vuelva la conexión.
+
 - Usar una residencial y cuentas de demostración. Avisar al personal antes de
   emitir un SOS de prueba para no activar una respuesta real por confusión.
 - Teléfono A: guardia asignado, sesión iniciada y push habilitado.
