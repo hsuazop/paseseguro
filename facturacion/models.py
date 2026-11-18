@@ -318,6 +318,16 @@ class ComprobantePago(TimeStampedModel):
     def correo_residente(self):
         return (self.enviado_por.email or self.responsable.correo or '').strip()
 
+    @property
+    def estado_notificacion(self):
+        return 'PAGO_ANULADO' if self.pago_id and self.pago.anulado else self.estado
+
+    @property
+    def estado_visible(self):
+        if self.estado_notificacion == 'PAGO_ANULADO':
+            return 'Pago anulado'
+        return 'Registrado (aprobado)' if self.estado == self.Estado.APROBADO else self.get_estado_display()
+
 
 class ComprobanteCuota(models.Model):
     comprobante = models.ForeignKey(ComprobantePago, on_delete=models.CASCADE, related_name="conceptos")

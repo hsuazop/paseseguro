@@ -68,7 +68,7 @@ def enviar_estado_comprobante(pk, usuario):
         validate_email(destinatario)
     except ValidationError:
         return 'error', 'El correo del residente no es válido. Corrígelo antes de enviar.'
-    if item.correo_enviado_en and item.correo_estado == item.estado and item.correo_enviado_en > timezone.now()-timedelta(seconds=30):
+    if item.correo_enviado_en and item.correo_estado == item.estado_notificacion and item.correo_enviado_en > timezone.now()-timedelta(seconds=30):
         return 'reciente', 'El correo de este estado ya se envió hace unos segundos.'
     smtp = settings.EMAIL_BACKEND == 'django.core.mail.backends.smtp.EmailBackend'
     if smtp and (not settings.EMAIL_HOST or not settings.DEFAULT_FROM_EMAIL):
@@ -76,7 +76,7 @@ def enviar_estado_comprobante(pk, usuario):
         item.save(update_fields=['correo_error'])
         return 'error', item.correo_error
     periodos = ', '.join(c.periodo for c in item.cuotas.order_by('anio','mes')) or 'Sin período asignado'
-    estado = 'Registrado (aprobado)' if item.estado == 'APROBADO' else item.get_estado_display()
+    estado = item.estado_visible
     body = (f'Hola, {item.enviado_por.nombre_completo}.\n\n'
         f'Estado de tu comprobante #{item.pk}: {estado}.\n'
         f'Residencial: {item.colonia.nombre}\nCasa: {item.casa.codigo}\n'
@@ -91,9 +91,9 @@ def enviar_estado_comprobante(pk, usuario):
         item.save(update_fields=['correo_error'])
         return 'error', item.correo_error
     item.correo_enviado_en = timezone.now()
-    item.correo_estado = item.estado
+    item.correo_estado = item.estado_notificacion
     item.correo_error = ''
     item.save(update_fields=['correo_enviado_en','correo_estado','correo_error'])
     registrar_auditoria(usuario=usuario, accion='CORREO_COMPROBANTE', objeto=item,
-                       descripcion=f'Correo de estado {item.estado} aceptado por el servidor de correo.')
+                       descripcion=f'Correo de estado {item.estado_notificacion} aceptado por el servidor de correo.')
     return 'enviado', 'Correo enviado al residente.'

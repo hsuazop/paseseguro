@@ -58,7 +58,7 @@ class Reserva(TimeStampedModel):
         ordering = ("-fecha", "-hora_inicio")
 
     def clean(self):
-        if self.hora_fin <= self.hora_inicio:
+        if self.hora_fin and self.hora_inicio and self.hora_fin <= self.hora_inicio:
             raise ValidationError({"hora_fin": "La hora final debe ser posterior a la hora inicial."})
         if self.area_id and self.casa_id and self.area.colonia_id != self.casa.colonia_id:
             raise ValidationError("El área y la casa deben pertenecer a la misma colonia.")

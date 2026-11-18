@@ -91,7 +91,9 @@ def tesoreria(request):
         )
         comprobante_por_responsable = {}
         for comprobante in comprobantes:
-            comprobante_por_responsable.setdefault(comprobante.responsable_id, comprobante)
+            previo = comprobante_por_responsable.get(comprobante.responsable_id)
+            if previo is None or (previo.estado != ComprobantePago.Estado.PENDIENTE and comprobante.estado == ComprobantePago.Estado.PENDIENTE):
+                comprobante_por_responsable[comprobante.responsable_id] = comprobante
 
         for casa in casas:
             cuota = cuotas_por_responsable.get(casa.responsable_actual_id)

@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 
 from accounts.models import User
@@ -73,12 +74,22 @@ def reserva_revisar(request, pk):
     )
     form = RevisarReservaForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
-        reserva.estado = form.cleaned_data["estado"]
-        reserva.observacion_revision = form.cleaned_data["observacion"]
-        reserva.revisado_por = request.user
-        reserva.save(update_fields=("estado", "observacion_revision", "revisado_por", "updated_at"))
-        messages.success(request, "Reservación revisada.")
-        return redirect("reservas_gestion")
+        try:
+            with transaction.atomic():
+                reserva = Reserva.objects.select_for_update().get(pk=reserva.pk)
+                if reserva.estado == Reserva.Estado.CANCELADA:
+                    raise ValidationError('La reservación fue cancelada por el residente y no puede reactivarse.')
+                reserva.estado = form.cleaned_data['estado']
+                if reserva.estado == Reserva.Estado.APROBADA:
+                    reserva.full_clean()
+                reserva.observacion_revision = form.cleaned_data['observacion']
+                reserva.revisado_por = request.user
+                reserva.save(update_fields=('estado', 'observacion_revision', 'revisado_por', 'updated_at'))
+        except ValidationError as exc:
+            form.add_error(None, ' '.join(exc.messages))
+        else:
+            messages.success(request, 'Reservación revisada.')
+            return redirect('reservas_gestion')
     return render(request, "reservas/revisar.html", {"reserva": reserva, "form": form})
 
 

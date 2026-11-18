@@ -90,7 +90,12 @@ def mi_cuenta_casa(request, casa_id):
         return redirect("login")
     casa = _casa_residente(request.user, casa_id)
     responsable = _responsable_actual(request.user)
-    anio = int(request.GET.get("anio", date.today().year))
+    try:
+        anio = int(request.GET.get('anio', timezone.localdate().year))
+        if not 2020 <= anio <= 9999:
+            raise ValueError()
+    except (ValueError, TypeError):
+        anio = timezone.localdate().year
     cuotas_qs = responsable.cuotas.filter(colonia=casa.colonia, anio=anio).exclude(
         estado=CuotaMensual.Estado.ANULADA
     )
