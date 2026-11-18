@@ -75,6 +75,7 @@ urlpatterns = [
     path('mi-cuenta/<int:casa_id>/cuentas-pago/', factura_views.cuenta_pago_residente, name='cuenta_pago_residente'),
     path('comprobantes/', factura_views.comprobantes_gestion, name='comprobantes_gestion'),
     path('comprobantes/<int:pk>/revisar/', factura_views.comprobante_revisar, name='comprobante_revisar'),
+    path('comprobantes/<int:pk>/correo/', factura_views.comprobante_enviar_correo, name='comprobante_enviar_correo'),
     path('reportes/morosidad/', reporte_views.morosidad, name='reporte_morosidad'),
     path('reportes/morosidad/excel/', reporte_views.exportar_morosidad_excel, name='morosidad_excel'),
     path('reportes/recaudacion/', reporte_views.recaudacion, name='reporte_recaudacion'),

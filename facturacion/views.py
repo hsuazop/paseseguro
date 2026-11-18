@@ -1,12 +1,15 @@
 from datetime import date
 from decimal import Decimal
 import logging
+from django.conf import settings
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.views.decorators.cache import never_cache
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
@@ -406,6 +409,7 @@ def comprobante_enviar(request, casa_id):
                 comprobante.responsable = casa.responsable_actual
                 comprobante.enviado_por = request.user
                 comprobante.fecha_pago = timezone.localdate()
+                comprobante.periodos_solicitados = [{"anio": cuota.anio, "mes": cuota.mes}]
                 comprobante.full_clean(exclude=("cuotas",))
                 comprobante.save()
                 ComprobanteCuota.objects.create(comprobante=comprobante, cuota=cuota)
@@ -438,6 +442,7 @@ def cuenta_pago_residente(request, casa_id):
 
 
 @roles_requeridos(*ROLES_FINANCIEROS)
+@never_cache
 def comprobantes_gestion(request):
     comprobantes = ComprobantePago.objects.filter(colonia__in=colonias_permitidas(request.user)).select_related(
         "casa", "colonia", "responsable", "enviado_por", "revisado_por"
@@ -446,80 +451,55 @@ def comprobantes_gestion(request):
     if estado:
         comprobantes = comprobantes.filter(estado=estado)
     page_obj = paginar(request, comprobantes)
+    for item in page_obj:
+        cuotas = list(item.cuotas.all())
+        initial = {'estado': 'APROBADO', 'comentario_revision': item.comentario_revision}
+        if len(cuotas) == 1:
+            initial.update(anio=cuotas[0].anio, mes=cuotas[0].mes)
+        item.revision_form = RevisarComprobanteForm(initial=initial, auto_id=f'id_{item.pk}_%s')
+        for field in item.revision_form.fields.values():
+            field.widget.attrs['form'] = f'revision-{item.pk}'
     return render(
         request,
         "facturacion/comprobantes_gestion.html",
-        {"comprobantes": page_obj, "page_obj": page_obj, "estados": ComprobantePago.Estado.choices},
+        {"comprobantes": page_obj, "page_obj": page_obj, "estados": ComprobantePago.Estado.choices,
+         "correo_configurado": bool(settings.EMAIL_HOST and settings.DEFAULT_FROM_EMAIL)},
     )
 
 
 @roles_requeridos(*ROLES_FINANCIEROS)
+@never_cache
 def comprobante_revisar(request, pk):
-    comprobante = get_object_or_404(
-        ComprobantePago.objects.select_related("casa", "colonia", "responsable", "enviado_por").prefetch_related("cuotas"),
-        pk=pk,
-        colonia__in=colonias_permitidas(request.user),
-    )
-    form = RevisarComprobanteForm(
-        request.POST or None,
-        initial={"estado": comprobante.estado, "comentario_revision": comprobante.comentario_revision},
-    )
-    if request.method == "POST" and form.is_valid():
-        anterior = comprobante.estado
-        nuevo_estado = form.cleaned_data["estado"]
+    from .services.comprobantes import revisar_comprobante, enviar_estado_comprobante
+    comprobante = get_object_or_404(ComprobantePago.objects.select_related('casa', 'colonia', 'responsable', 'enviado_por').prefetch_related('cuotas'),
+                                   pk=pk, colonia__in=colonias_permitidas(request.user))
+    cuotas = list(comprobante.cuotas.all())
+    initial = {'estado': 'APROBADO', 'comentario_revision': comprobante.comentario_revision}
+    if len(cuotas) == 1:
+        initial.update(anio=cuotas[0].anio, mes=cuotas[0].mes)
+    form = RevisarComprobanteForm(request.POST if request.method == 'POST' else None, initial=initial)
+    if request.method == 'POST' and form.is_valid():
         try:
-            with transaction.atomic():
-                if nuevo_estado == ComprobantePago.Estado.APROBADO and not comprobante.pago_id:
-                    cuotas = list(
-                        CuotaMensual.objects.select_for_update().filter(
-                            comprobantes=comprobante,
-                            saldo__gt=0,
-                        ).exclude(estado=CuotaMensual.Estado.ANULADA).order_by("anio", "mes", "pk")
-                    )
-                    restante = comprobante.monto
-                    aplicaciones = []
-                    for cuota in cuotas:
-                        monto = min(cuota.saldo, restante)
-                        if monto > Decimal("0"):
-                            aplicaciones.append({"cuota_id": cuota.pk, "monto": monto})
-                            restante -= monto
-                    if restante > Decimal("0"):
-                        raise ValidationError(
-                            "El comprobante supera el saldo de las cuotas seleccionadas. Revise el monto o las cuotas antes de aprobarlo."
-                        )
-                    comprobante.pago = registrar_pago(
-                        casa=comprobante.casa,
-                        responsable=comprobante.responsable,
-                        fecha_pago=comprobante.fecha_pago,
-                        monto_total=comprobante.monto,
-                        metodo_pago=comprobante.metodo_pago,
-                        referencia=comprobante.referencia,
-                        observaciones=f"Generado al aprobar comprobante #{comprobante.pk}.",
-                        aplicaciones=aplicaciones,
-                        usuario=request.user,
-                    )
-
-                comprobante.estado = nuevo_estado
-                comprobante.comentario_revision = form.cleaned_data["comentario_revision"]
-                comprobante.revisado_por = request.user
-                comprobante.revisado_en = timezone.now()
-                comprobante.save(
-                    update_fields=(
-                        "estado", "comentario_revision", "revisado_por", "revisado_en", "pago", "updated_at"
-                    )
-                )
-                registrar_auditoria(
-                    usuario=request.user,
-                    accion="REVISION_COMPROBANTE",
-                    objeto=comprobante,
-                    descripcion=f"Comprobante cambiado de {anterior} a {comprobante.estado}.",
-                )
+            comprobante = revisar_comprobante(pk, form.cleaned_data, request.user)
         except ValidationError as exc:
-            form.add_error(None, exc.message)
+            form.add_error(None, exc)
         else:
-            messages.success(request, "Comprobante revisado y pago aplicado a las cuotas seleccionadas.")
-            return redirect("comprobantes_gestion")
-    return render(request, "facturacion/comprobante_revisar.html", {"comprobante": comprobante, "form": form})
+            messages.success(request, 'Comprobante registrado y pago aplicado.' if comprobante.pago_id else 'Comprobante rechazado; no se registró un pago.')
+            # The financial transaction is committed before contacting SMTP.
+            resultado, mensaje = enviar_estado_comprobante(pk, request.user)
+            (messages.warning if resultado == 'error' else messages.info)(request, mensaje)
+            return redirect('comprobantes_gestion')
+    return render(request, 'facturacion/comprobante_revisar.html', {'comprobante': comprobante, 'form': form})
+
+
+@roles_requeridos(*ROLES_FINANCIEROS)
+@require_POST
+def comprobante_enviar_correo(request, pk):
+    from .services.comprobantes import enviar_estado_comprobante
+    get_object_or_404(ComprobantePago, pk=pk, colonia__in=colonias_permitidas(request.user))
+    resultado, mensaje = enviar_estado_comprobante(pk, request.user)
+    (messages.warning if resultado == 'error' else messages.info)(request, mensaje)
+    return redirect('comprobantes_gestion')
 
 
 @roles_requeridos(*ROLES_GESTION)

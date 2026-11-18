@@ -275,6 +275,10 @@ class ComprobantePago(TimeStampedModel):
     comentario = models.TextField(blank=True)
     estado = models.CharField(max_length=12, choices=Estado.choices, default=Estado.PENDIENTE)
     comentario_revision = models.TextField(blank=True)
+    periodos_solicitados = models.JSONField(default=list, blank=True, editable=False)
+    correo_enviado_en = models.DateTimeField(null=True, blank=True, editable=False)
+    correo_estado = models.CharField(max_length=20, blank=True, editable=False)
+    correo_error = models.CharField(max_length=200, blank=True, editable=False)
     revisado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -305,6 +309,14 @@ class ComprobantePago(TimeStampedModel):
 
     def __str__(self):
         return f"Comprobante #{self.pk or 'nuevo'} - {self.casa}"
+
+    @property
+    def es_imagen(self):
+        return self.archivo.name.lower().endswith(('.jpg', '.jpeg', '.png', '.webp'))
+
+    @property
+    def correo_residente(self):
+        return (self.enviado_por.email or self.responsable.correo or '').strip()
 
 
 class ComprobanteCuota(models.Model):

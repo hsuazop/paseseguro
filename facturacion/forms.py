@@ -212,6 +212,8 @@ class ComprobantePagoForm(forms.ModelForm):
 
 
 class RevisarComprobanteForm(forms.Form):
+    anio = forms.IntegerField(label='Año a registrar', min_value=2020, max_value=9999, required=False)
+    mes = forms.TypedChoiceField(label='Mes a registrar', coerce=int, required=False, choices=[('', 'Conservar períodos')] + list(CuotaMensual.MESES))
     estado = forms.ChoiceField(
         choices=((ComprobantePago.Estado.APROBADO, "Aprobar"), (ComprobantePago.Estado.RECHAZADO, "Rechazar"))
     )
@@ -224,6 +226,12 @@ class RevisarComprobanteForm(forms.Form):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         aplicar_bootstrap(self)
+
+    def clean(self):
+        data = super().clean()
+        if bool(data.get('anio')) != bool(data.get('mes')):
+            raise forms.ValidationError('Indica tanto el año como el mes, o deja ambos vacíos para conservar los períodos.')
+        return data
 
 
 class CuentaPagoColoniaForm(forms.ModelForm):
