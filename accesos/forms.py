@@ -4,6 +4,7 @@ from core.forms import aplicar_bootstrap
 from colonias.models import Casa
 
 from .models import RegistroVehicular, Vehiculo, VehiculoColonia
+from .fotos import MAX_FOTOS_ENTRADA, MAX_BYTES_FOTO
 
 
 class VehiculoColoniaForm(forms.ModelForm):
@@ -59,7 +60,32 @@ class VehiculoResidenteGestionForm(VehiculoForm):
         return data
 
 
+class FotosEntradaInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class FotosEntradaField(forms.ImageField):
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else ([data] if data else [])
+        if len(files) > MAX_FOTOS_ENTRADA:
+            raise forms.ValidationError(f"Puedes adjuntar hasta {MAX_FOTOS_ENTRADA} fotos por entrada.")
+        result = []
+        for file in files:
+            if file.size > MAX_BYTES_FOTO:
+                raise forms.ValidationError("Cada foto debe pesar como máximo 8 MB.")
+            valid = super().clean(file, initial)
+            extension = {"JPEG": ".jpg", "PNG": ".png", "WEBP": ".webp"}.get(valid.image.format)
+            if not extension:
+                raise forms.ValidationError("Usa fotos JPG, PNG o WEBP.")
+            valid.name = "foto" + extension
+            result.append(valid)
+        return result
+
+
 class RegistroEntradaForm(forms.ModelForm):
+    fotos = FotosEntradaField(label="Fotos de la entrada", required=False,
+        widget=FotosEntradaInput(attrs={"accept": "image/jpeg,image/png,image/webp"}),
+        help_text="Opcional. Hasta 8 fotos JPG, PNG o WEBP, de máximo 8 MB cada una.")
     class Meta:
         model = RegistroVehicular
         fields = (

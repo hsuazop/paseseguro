@@ -44,7 +44,7 @@ Guardar la clave pública que imprime en `WEBPUSH_PUBLIC_KEY` y configurar:
 ```sh
 WEBPUSH_PRIVATE_KEY=/ruta/privada/push-private.pem
 WEBPUSH_PUBLIC_KEY=clave_publica_generada
-WEBPUSH_SUBJECT=https://paseseguro.hectorsp25.opalstacked.com
+WEBPUSH_SUBJECT=https://residencialsegura.com
 ```
 
 No rotar la clave sin planificar reinscripción de dispositivos. Conservar respaldo

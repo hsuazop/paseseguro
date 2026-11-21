@@ -1,6 +1,8 @@
-# Pase Seguro
+# Residencia Segura
 
-- Nombre y nombre corto: **Pase Seguro**.
+- Nombre y nombre corto: **Residencia Segura**.
+- Dominio público: `https://residencialsegura.com` (el dominio lleva «residencial»).
+- Android conserva `com.paseseguro.app` y su firma para actualizar instalaciones existentes.
 - Símbolo: escudo blanco con marca de verificación celeste sobre fondo azul.
 - Azul principal: `#153b63`; azul oscuro: `#0d2947`.
 - Azul del portal: `#075aa6`; acento: `#2d7fb8`; fondo: `#f4f7fb`.

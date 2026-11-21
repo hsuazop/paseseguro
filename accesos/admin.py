@@ -1,7 +1,25 @@
 from django.contrib import admin
-from core.admin_utils import BaseAdmin
+from core.admin_utils import BaseAdmin, ReadOnlyAdmin
+from django.urls import reverse
+from django.utils.html import format_html
 
-from .models import RegistroVehicular, Vehiculo, VehiculoColonia
+from .models import FotoEntrada, RegistroVehicular, Vehiculo, VehiculoColonia
+
+
+@admin.register(FotoEntrada)
+class FotoEntradaAdmin(ReadOnlyAdmin):
+    list_display = ("registro", "created_at")
+    list_filter = ("registro__colonia",)
+    search_fields = ("registro__placa", "registro__conductor")
+    list_select_related = ("registro",)
+    fields = ("registro", "ver_foto", "created_at", "updated_at")
+
+    def get_readonly_fields(self, request, obj=None):
+        return self.fields
+
+    @admin.display(description="Foto")
+    def ver_foto(self, obj):
+        return format_html('<a href="{}">Ver foto</a>', reverse("foto_entrada_archivo", args=[obj.pk]))
 
 
 @admin.register(VehiculoColonia)

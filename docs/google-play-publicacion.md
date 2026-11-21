@@ -4,9 +4,9 @@ Estado: compilación de lanzamiento preparada, todavía no enviada a Play Consol
 
 ## Archivos
 
-- AAB firmado: `outputs/android/PaseSeguro-1.1.0.aab`.
-- APK firmado para prueba directa: `outputs/android/PaseSeguro-1.1.0.apk`.
-- Identificador: `com.paseseguro.app`. Versión 1.1.0, código 3.
+- AAB firmado: `outputs/android/ResidenciaSegura-1.2.0.aab`.
+- APK firmado para prueba directa: `outputs/android/ResidenciaSegura-1.2.0.apk`.
+- Identificador: `com.paseseguro.app`. Versión 1.2.0, código 4.
 - Android mínimo API 24, objetivo API 36.
 - `outputs/android/play`: icono, gráfico y capturas con datos sintéticos.
 - `outputs/android/build-report.json`: hashes y comprobaciones de firma.
@@ -14,13 +14,13 @@ Estado: compilación de lanzamiento preparada, todavía no enviada a Play Consol
 
 ## Texto de ficha propuesto
 
-**Nombre:** Pase Seguro
+**Nombre:** Residencia Segura
 
 **Descripción corta:** Gestiona cuotas, visitas y comunicaciones de tu residencial.
 
 **Descripción completa:**
 
-Pase Seguro organiza las gestiones cotidianas de comunidades residenciales.
+Residencia Segura organiza las gestiones cotidianas de comunidades residenciales.
 La administración habilita las cuentas y asigna el acceso según la función
 de cada persona y la residencial correspondiente.
 

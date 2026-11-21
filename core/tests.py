@@ -52,7 +52,7 @@ class IdentidadAppTests(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "application/manifest+json")
         manifest = response.json()
-        self.assertEqual(manifest["name"], "Pase Seguro")
+        self.assertEqual(manifest["name"], "Residencia Segura")
         self.assertEqual(manifest["start_url"], reverse("inicio"))
         self.assertEqual(manifest["scope"], reverse("inicio"))
         self.assertEqual(manifest["display"], "standalone")

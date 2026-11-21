@@ -7,7 +7,7 @@ self.addEventListener('push', event => {
     try {
       const payload = event.data?.json();
       if (payload?.tipo === 'prueba') {
-        await self.registration.showNotification('Pase Seguro · Prueba de notificación', {
+        await self.registration.showNotification('Residencia Segura · Prueba de notificación', {
           body:'Prueba de aviso y vibración. No es una emergencia.', tag:'sos-prueba',
           renotify:true, vibrate:[500,200,500,200,800],
           icon:'/static/core/brand/icon-192.png', data:{url:'/guardia/sos/'}
@@ -30,7 +30,7 @@ self.addEventListener('push', event => {
     } catch (_) {
       // A temporary network failure must not silently swallow an emergency.
       // Never include personal information without a fresh authorization check.
-      await self.registration.showNotification('Pase Seguro · Revisar emergencias', {
+      await self.registration.showNotification('Residencia Segura · Revisar emergencias', {
         body:'Llegó un aviso. Abre la bandeja SOS para comprobarlo cuando tengas conexión.',
         tag:'sos-conexion', renotify:true, vibrate:[500,200,500,200,800],
         icon:'/static/core/brand/icon-192.png', data:{url:'/guardia/sos/'}

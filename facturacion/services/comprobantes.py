@@ -81,9 +81,9 @@ def enviar_estado_comprobante(pk, usuario):
         f'Estado de tu comprobante #{item.pk}: {estado}.\n'
         f'Residencial: {item.colonia.nombre}\nCasa: {item.casa.codigo}\n'
         f'Monto: L {item.monto:.2f}\nPeríodo: {periodos}\n'
-        f'Comentario de tesorería: {item.comentario_revision or "Sin comentario"}\n\nPase Seguro')
+        f'Comentario de tesorería: {item.comentario_revision or "Sin comentario"}\n\nResidencia Segura')
     try:
-        sent = send_mail(f'Pase Seguro · Comprobante #{item.pk}: {estado}', body,
+        sent = send_mail(f'Residencia Segura · Comprobante #{item.pk}: {estado}', body,
                          settings.DEFAULT_FROM_EMAIL, [destinatario], fail_silently=False)
         if sent != 1: raise RuntimeError('Mail not accepted')
     except Exception:

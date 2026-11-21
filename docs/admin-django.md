@@ -1,6 +1,6 @@
 # Administración de Django
 
-Acceso publicado: https://paseseguro.hectorsp25.opalstacked.com/admin/
+Acceso publicado: https://residencialsegura.com/admin/
 Acceso local: http://127.0.0.1:8000/admin/
 
 El archivo local `credenciales` contiene el usuario y la contraseña en la sección

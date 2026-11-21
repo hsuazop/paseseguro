@@ -20,11 +20,11 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   await new Promise(resolve => setTimeout(resolve, 5000));
   const crashes = run(['logcat', '-b', 'crash', '-d', '-v', 'brief']);
   fs.writeFileSync(path.join(root, `outputs/android/crash-${apk.version}.txt`), crashes);
-  assert.ok(!crashes.includes('Process: ' + apk.packageId), 'Pase Seguro crashed after launch:\n' + crashes);
+  assert.ok(!crashes.includes('Process: ' + apk.packageId), 'Residencia Segura crashed after launch:\n' + crashes);
   const warmLaunch = run(['shell', 'am', 'start', '-W', '-n', apk.packageId + '/.LauncherActivity']);
   await new Promise(resolve => setTimeout(resolve, 3000));
   const warmCrashes = run(['logcat', '-b', 'crash', '-d', '-v', 'brief']);
-  assert.ok(!warmCrashes.includes('Process: ' + apk.packageId), 'Pase Seguro crashed after reopening:\n' + warmCrashes);
+  assert.ok(!warmCrashes.includes('Process: ' + apk.packageId), 'Residencia Segura crashed after reopening:\n' + warmCrashes);
   const screenshot = execFileSync(adb, ['-s', serial, 'exec-out', 'screencap', '-p'], { windowsHide: true, timeout: 15000 });
   fs.writeFileSync(path.join(root, `outputs/android/launch-${apk.version}.png`), screenshot);
   run(['shell', 'uiautomator', 'dump', '/sdcard/paseseguro-window.xml']);

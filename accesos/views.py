@@ -1,10 +1,14 @@
 from datetime import timedelta
+import logging
+import mimetypes
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied
-from django.db import transaction
-from django.db.models import Q
+from django.core.exceptions import PermissionDenied, ValidationError
+from django.db import DatabaseError
+from django.db.models import Count, Q
+from django.http import FileResponse, Http404
+from django.views.decorators.cache import never_cache
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -15,7 +19,8 @@ from core.pagination import paginar
 from residentes.access import casa_del_residente
 
 from .forms import RegistroEntradaForm, VehiculoForm
-from .models import RegistroVehicular, Vehiculo
+from .models import FotoEntrada, RegistroVehicular, Vehiculo
+from .entrada_service import guardar_entrada
 
 
 def _colonia_operativa(request):
@@ -29,9 +34,9 @@ def dashboard_guardia(request):
     registros = RegistroVehicular.objects.none()
     dentro = entradas_hoy = salidas_hoy = 0
     if colonia:
-        registros = RegistroVehicular.objects.filter(colonia=colonia).select_related(
+        registros = RegistroVehicular.objects.filter(colonia=colonia).annotate(total_fotos=Count("fotos")).select_related(
             "vehiculo", "casa_destino", "responsable_destino", "guardia_entrada", "guardia_salida"
-        )
+        ).order_by("-fecha_entrada", "-pk")
         entradas_hoy = registros.filter(fecha_entrada__date=hoy).count()
         salidas_hoy = registros.filter(fecha_salida__date=hoy).count()
         dentro = registros.filter(fecha_salida__isnull=True).count()
@@ -57,26 +62,18 @@ def registrar_entrada(request):
         messages.error(request, "No tienes una colonia activa asignada.")
         return redirect("dashboard_guardia")
     casas = Casa.objects.filter(colonia=colonia, activa=True).select_related("responsable_actual")
-    form = RegistroEntradaForm(request.POST or None, casas_queryset=casas)
+    form = RegistroEntradaForm(request.POST if request.method == "POST" else None, request.FILES or None, casas_queryset=casas)
     if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            registro = form.save(commit=False)
-            registro.colonia = colonia
-            registro.guardia_entrada = request.user
-            vehiculo = Vehiculo.objects.filter(colonia=colonia, placa=registro.placa, activo=True).select_related(
-                "casa", "responsable"
-            ).first()
-            if vehiculo:
-                registro.vehiculo = vehiculo
-                registro.casa_destino = vehiculo.casa
-                registro.responsable_destino = vehiculo.responsable
-                registro.tipo_acceso = RegistroVehicular.TipoAcceso.RESIDENTE
-            elif registro.casa_destino_id:
-                registro.responsable_destino = registro.casa_destino.responsable_actual
-            registro.full_clean()
-            registro.save()
-        messages.success(request, f"Entrada de {registro.placa} registrada.")
-        return redirect("dashboard_guardia")
+        try:
+            registro = guardar_entrada(form, colonia, request.user)
+        except ValidationError as exc:
+            form.add_error(None, " ".join(exc.messages))
+        except (OSError, DatabaseError):
+            logging.getLogger(__name__).exception("No se pudo guardar la entrada con sus fotos.")
+            form.add_error(None, "No se pudo guardar la entrada. Adjunta las fotos nuevamente e intenta otra vez.")
+        else:
+            messages.success(request, f"Entrada de {registro.placa} registrada.")
+            return redirect("dashboard_guardia")
     return render(
         request,
         "accesos/entrada_form.html",
@@ -104,7 +101,7 @@ def registrar_salida(request, pk):
 def historial_accesos(request):
     colonias, colonia = _colonia_operativa(request)
     registros = RegistroVehicular.objects.filter(colonia=colonia) if colonia else RegistroVehicular.objects.none()
-    registros = registros.select_related("casa_destino", "responsable_destino", "guardia_entrada", "guardia_salida")
+    registros = registros.annotate(total_fotos=Count("fotos")).select_related("casa_destino", "responsable_destino", "guardia_entrada", "guardia_salida").order_by("-fecha_entrada", "-pk")
     buscar = request.GET.get("q", "").strip()
     if buscar:
         registros = registros.filter(
@@ -119,6 +116,27 @@ def historial_accesos(request):
         "accesos/historial.html",
         {"registros": page_obj, "page_obj": page_obj, "colonias": colonias, "colonia": colonia, "buscar": buscar},
     )
+
+
+@roles_requeridos(*ROLES_ACCESO)
+@never_cache
+def fotos_entrada(request, pk):
+    registro = get_object_or_404(RegistroVehicular.objects.select_related("colonia", "guardia_entrada"),
+        pk=pk, colonia__in=colonias_permitidas(request.user))
+    return render(request, "accesos/fotos_entrada.html", {"registro": registro, "fotos": registro.fotos.all()})
+
+
+@roles_requeridos(*ROLES_ACCESO)
+@never_cache
+def foto_entrada_archivo(request, pk):
+    foto = get_object_or_404(FotoEntrada, pk=pk, registro__colonia__in=colonias_permitidas(request.user))
+    try:
+        archivo = foto.archivo.open("rb")
+    except FileNotFoundError:
+        raise Http404("Foto no disponible")
+    response = FileResponse(archivo, content_type=mimetypes.guess_type(foto.archivo.name)[0] or "application/octet-stream")
+    response["X-Content-Type-Options"] = "nosniff"
+    return response
 
 
 @login_required

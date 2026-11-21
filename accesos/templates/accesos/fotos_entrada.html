@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block title %}Fotos de entrada · {{ registro.placa }}{% endblock %}
+{% block content %}
+<a href="{% url 'historial_accesos' %}?colonia={{ registro.colonia_id|stringformat:'d' }}" class="btn btn-outline-secondary mb-3">Volver al historial</a>
+<h1 class="page-title">Fotos de {{ registro.placa }}</h1>
+<p class="text-muted">{{ registro.colonia.nombre }} · {{ registro.fecha_entrada|date:'d/m/Y H:i' }} · {{ registro.guardia_entrada.nombre_completo }}</p>
+<div class="row g-3">{% for foto in fotos %}<div class="col-12 col-sm-6 col-lg-4"><div class="card h-100"><a href="{% url 'foto_entrada_archivo' foto.pk %}" target="_blank" rel="noopener"><img src="{% url 'foto_entrada_archivo' foto.pk %}" class="card-img-top" style="height:260px;object-fit:contain" alt="Foto {{ forloop.counter }} de la entrada de {{ registro.placa }}" loading="lazy"></a><div class="card-body"><a href="{% url 'foto_entrada_archivo' foto.pk %}" target="_blank" rel="noopener">Ampliar foto {{ forloop.counter }}</a></div></div></div>{% empty %}<p class="text-muted">Esta entrada no tiene fotos.</p>{% endfor %}</div>
+{% endblock %}

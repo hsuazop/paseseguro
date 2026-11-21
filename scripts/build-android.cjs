@@ -16,6 +16,7 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   if (twa.packageId !== identity.packageId) throw new Error('The Android package differs from the saved identity.');
   identity.version = twa.appVersion;
   identity.versionCode = twa.appVersionCode;
+  identity.host = twa.host;
   const env = { ...process.env, JAVA_HOME: tools.JdkDirectory, ANDROID_HOME: tools.SdkDirectory, ANDROID_SDK_ROOT: tools.SdkDirectory, PASESEGURO_KEYSTORE_PASSWORD: signing.keystorePassword, PASESEGURO_KEY_PASSWORD: signing.keyPassword };
   const pathKey = Object.keys(env).find(key => key.toLowerCase() === 'path') || 'Path';
   env[pathKey] = path.join(tools.JdkDirectory, 'bin') + ';' + env[pathKey];
@@ -44,14 +45,16 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   const aapt = fs.existsSync(path.join(buildTools, 'aapt.exe')) ? 'aapt.exe' : 'aapt2.exe';
   const badging = await run(path.join(buildTools, aapt), ['dump', 'badging', signed], true);
   if (!badging.includes(`package: name='${identity.packageId}'`)) throw new Error('Unexpected APK package name.');
+  if (!badging.includes(`application-label:'${twa.name}'`)) throw new Error('Unexpected APK application name.');
+  if (!badging.includes(`versionCode='${identity.versionCode}'`)) throw new Error('Unexpected APK version code.');
   const output = path.join(root, 'outputs/android');
-  const file = path.join(output, `PaseSeguro-${identity.version}.apk`);
+  const file = path.join(output, `ResidenciaSegura-${identity.version}.apk`);
   fs.copyFileSync(signed, file);
   fs.writeFileSync(path.join(output, 'signature-verification.txt'), verification);
   fs.writeFileSync(path.join(output, 'apk-details.txt'), badging);
   const report = { apk: file, packageId: identity.packageId, version: identity.version, versionCode: identity.versionCode, bytes: fs.statSync(file).size, apkSha256: crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'), certificateSha256: identity.fingerprint, signatureVerified: true, zipAlignmentVerified: true, minimumAndroidApi: badging.match(/sdkVersion:'(\d+)'/)?.[1], targetAndroidApi: badging.match(/targetSdkVersion:'(\d+)'/)?.[1] };
   const bundle = path.join(project, 'app/build/outputs/bundle/release/app-release.aab');
-  const bundleOutput = path.join(output, `PaseSeguro-${identity.version}.aab`);
+  const bundleOutput = path.join(output, `ResidenciaSegura-${identity.version}.aab`);
   fs.copyFileSync(bundle, bundleOutput);
   await run(path.join(tools.JdkDirectory, 'bin/jarsigner.exe'), ['-keystore', signing.keystorePath, '-storepass:env', 'PASESEGURO_KEYSTORE_PASSWORD', '-keypass:env', 'PASESEGURO_KEY_PASSWORD', bundleOutput, signing.alias], true);
   const bundleVerification = await run(path.join(tools.JdkDirectory, 'bin/jarsigner.exe'), ['-verify', bundleOutput], true);

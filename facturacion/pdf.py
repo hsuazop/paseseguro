@@ -69,6 +69,6 @@ def generar_recibo_pdf(pago):
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"), ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 9), ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
-    story.extend([detalles, Spacer(1, 12 * mm), Paragraph(f"Documento generado por Pase Seguro<br/>{pago.token_publico}", styles["MutedCenter"])])
+    story.extend([detalles, Spacer(1, 12 * mm), Paragraph(f"Documento generado por Residencia Segura<br/>{pago.token_publico}", styles["MutedCenter"])])
     doc.build(story)
     return output.getvalue()

@@ -1,8 +1,10 @@
-# APK de Pase Seguro
+# APK de Residencia Segura
 
 La aplicación Android abre la web publicada mediante una Trusted Web Activity.
 El proyecto está en `C:\dev\android\paseseguro`, con paquete
-`com.paseseguro.app`, versión actual `1.0.1` y código de versión `2`.
+`com.paseseguro.app`, versión actual `1.2.0` y código de versión `4`.
+El nombre visible es **Residencia Segura** y abre `https://residencialsegura.com/`.
+Se conserva el paquete y la firma anteriores para instalarla como actualización.
 Requiere Android 7 (API 24) o posterior y conexión al servidor.
 
 ## Herramientas
@@ -28,14 +30,15 @@ El certificado público y su huella SHA-256 se pueden distribuir. El sitio sirve
 
 `scripts/build-android.cjs` compila el proyecto, alinea el APK, lo firma usando
 contraseñas entregadas por variables de entorno y verifica su firma. El resultado
-queda en `outputs/android/PaseSeguro-1.0.1.apk`, junto con el informe de verificación.
+queda en `outputs/android/ResidenciaSegura-1.2.0.apk`, junto con el informe de verificación.
 El script no imprime las contraseñas ni las incluye en el APK.
 
 Para futuras versiones:
 
 1. Conservar el mismo paquete y la misma clave de firma.
-2. Aumentar `appVersionCode` y actualizar `appVersion` en `twa-manifest.json`.
-3. Regenerar con `bubblewrap update --skipVersionUpgrade` y volver a compilar y firmar.
+2. Publicar los cambios del manifiesto web antes de regenerar Android.
+3. Ejecutar `node scripts/prepare-android-project.cjs VERSION CODIGO` con un código mayor
+   al publicado y después `node scripts/build-android.cjs`. Para esta versión: `1.2.0 4`.
 4. Verificar la firma y el funcionamiento en un teléfono Android.
 
 Los cambios habituales de pantallas y operaciones se publican en Django.

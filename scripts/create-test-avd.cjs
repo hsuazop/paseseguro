@@ -8,7 +8,7 @@ const avdRoot = path.join(os.homedir(), '.android/avd');
 const directory = path.join(avdRoot, name + '.avd');
 fs.mkdirSync(directory, { recursive: true });
 const configuration = {
-  'AvdId': name, 'avd.ini.encoding': 'UTF-8', 'avd.ini.displayname': 'Pase Seguro Android 16',
+  'AvdId': name, 'avd.ini.encoding': 'UTF-8', 'avd.ini.displayname': 'Residencia Segura Android 16',
   'PlayStore.enabled': 'false', 'abi.type': 'x86_64', 'hw.cpu.arch': 'x86_64', 'hw.cpu.ncore': '4',
   'hw.ramSize': '3072', 'hw.device.name': 'pixel_8', 'hw.device.manufacturer': 'Google',
   'hw.lcd.width': '1080', 'hw.lcd.height': '2400', 'hw.lcd.density': '420',

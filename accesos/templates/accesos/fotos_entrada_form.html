@@ -1,0 +1,15 @@
+<section class="mt-4" aria-labelledby="titulo-fotos">
+  <h2 class="h5" id="titulo-fotos">Fotos de la entrada</h2>
+  <p class="small text-muted" id="ayuda-fotos">{{ form.fotos.help_text }} Puedes tomar varias fotos, una después de otra, o seleccionarlas de la galería.</p>
+  {% if form.is_bound %}<p class="text-warning">Si adjuntaste fotos, vuelve a seleccionarlas antes de confirmar.</p>{% endif %}
+  <div data-photo-buttons hidden class="mb-3">
+    <button type="button" class="btn btn-outline-primary" id="tomar-foto"><i class="bi bi-camera-fill me-2" aria-hidden="true"></i>Tomar foto</button>
+    <button type="button" class="btn btn-outline-secondary" id="elegir-fotos">Elegir de galería</button>
+    <input type="file" id="camara-entrada" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
+  </div>
+  <div id="selector-fotos-nativo"><label class="form-label" for="{{ form.fotos.id_for_label }}">Seleccionar fotos</label>{{ form.fotos }}</div>
+  {{ form.fotos.errors }}
+  <p class="small mt-2" id="contador-fotos" role="status"></p>
+  <p class="text-danger" id="error-fotos" role="alert"></p>
+  <div class="row g-3" id="vista-fotos"></div>
+</section>

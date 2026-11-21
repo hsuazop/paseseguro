@@ -60,7 +60,7 @@ class DjangoAdminTests(TestCase):
 
     def test_portada_tiene_marca_y_resumen(self):
         response = self.client.get(reverse('admin:index'))
-        self.assertContains(response, 'Pase Seguro')
+        self.assertContains(response, 'Residencia Segura')
         self.assertContains(response, 'Residenciales y casas')
         self.assertContains(response, 'Todo tu sistema, en un solo lugar')
         self.assertContains(response, 'core/admin.css')

@@ -18,7 +18,7 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   const infoFile = path.join(locations.SigningDirectory, 'signing-info.json');
   const keyFile = path.join(locations.SigningDirectory, 'paseseguro.keystore');
   const packageId = 'com.paseseguro.app';
-  const host = 'paseseguro.hectorsp25.opalstacked.com';
+  const host = 'residencialsegura.com';
   const oldManifestFile = path.join(directory, 'twa-manifest.json');
   const oldManifest = fs.existsSync(oldManifestFile) ? readJSON(oldManifestFile) : {};
   if (oldManifest.packageId && oldManifest.packageId !== packageId) throw new Error('Existing Android project belongs to a different package.');
@@ -38,18 +38,19 @@ const readJSON = file => JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFE
   const env = { ...process.env, PASESEGURO_KEYSTORE_PASSWORD: info.keystorePassword, PASESEGURO_KEY_PASSWORD: info.keyPassword };
   const keytool = path.join(tools.JdkDirectory, 'bin/keytool.exe');
   if (!fs.existsSync(keyFile)) {
-    execFileSync(keytool, ['-genkeypair', '-keystore', keyFile, '-storetype', 'PKCS12', '-storepass:env', 'PASESEGURO_KEYSTORE_PASSWORD', '-keypass:env', 'PASESEGURO_KEY_PASSWORD', '-alias', info.alias, '-keyalg', 'RSA', '-keysize', '3072', '-sigalg', 'SHA256withRSA', '-validity', '10000', '-dname', 'CN=Pase Seguro,OU=Android,O=Pase Seguro,L=Tegucigalpa,C=HN', '-noprompt'], { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
+    execFileSync(keytool, ['-genkeypair', '-keystore', keyFile, '-storetype', 'PKCS12', '-storepass:env', 'PASESEGURO_KEYSTORE_PASSWORD', '-keypass:env', 'PASESEGURO_KEY_PASSWORD', '-alias', info.alias, '-keyalg', 'RSA', '-keysize', '3072', '-sigalg', 'SHA256withRSA', '-validity', '10000', '-dname', 'CN=Residencia Segura,OU=Android,O=Residencia Segura,L=Tegucigalpa,C=HN', '-noprompt'], { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   }
   const certificateFile = path.join(directory, 'signing-certificate.der');
   execFileSync(keytool, ['-exportcert', '-keystore', keyFile, '-storepass:env', 'PASESEGURO_KEYSTORE_PASSWORD', '-alias', info.alias, '-file', certificateFile], { env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
   const fingerprint = crypto.createHash('sha256').update(fs.readFileSync(certificateFile)).digest('hex').toUpperCase().match(/.{2}/g).join(':');
   info.sha256Fingerprint = fingerprint;
+  info.host = host;
   fs.writeFileSync(infoFile, JSON.stringify(info, null, 2), { mode: 0o600 });
   for (const file of [keyFile, infoFile]) fs.copyFileSync(file, path.join(locations.BackupDirectory, path.basename(file)));
   if (!fs.readFileSync(keyFile).equals(fs.readFileSync(path.join(locations.BackupDirectory, 'paseseguro.keystore')))) throw new Error('Signing backup verification failed.');
 
   const original = await TwaManifest.fromWebManifest(`https://${host}/manifest.webmanifest`);
-  const twa = new TwaManifest({ ...original.toJson(), packageId, host, name: 'Pase Seguro', launcherName: 'Pase Seguro', appVersion, appVersionCode, minSdkVersion: 24, signingKey: { path: keyFile, alias: info.alias }, fingerprints: [{ name: 'Pase Seguro release', value: fingerprint }], generatorApp: 'bubblewrap-cli', display: 'standalone', orientation: 'any', enableNotifications: true, enableSiteSettingsShortcut: false, fallbackType: 'customtabs', navigationColor: '#153b63', navigationColorDark: '#153b63', themeColorDark: '#153b63', backgroundColor: '#f4f7fb' });
+  const twa = new TwaManifest({ ...original.toJson(), packageId, host, name: 'Residencia Segura', launcherName: 'Residencia Segura', appVersion, appVersionCode, minSdkVersion: 24, signingKey: { path: keyFile, alias: info.alias }, fingerprints: [{ name: 'Residencia Segura release', value: fingerprint }], generatorApp: 'bubblewrap-cli', display: 'standalone', orientation: 'any', enableNotifications: true, enableSiteSettingsShortcut: false, fallbackType: 'customtabs', navigationColor: '#153b63', navigationColorDark: '#153b63', themeColorDark: '#153b63', backgroundColor: '#f4f7fb' });
   const manifestFile = path.join(directory, 'twa-manifest.json');
   await twa.saveToFile(manifestFile);
   await new TwaGenerator().createTwaProject(directory, twa, new ConsoleLog('PaseSeguro'), (done, total) => console.log(`Android project: ${done}/${total}`));

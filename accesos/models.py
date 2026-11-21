@@ -5,6 +5,7 @@ from django.db import models
 from django.utils import timezone
 
 from core.models import TimeStampedModel
+from .fotos import almacenamiento_fotos_entrada, ruta_foto_entrada
 
 
 class VehiculoColonia(TimeStampedModel):
@@ -145,4 +146,17 @@ class RegistroVehicular(TimeStampedModel):
 
     def __str__(self):
         return f"{self.placa} - {self.fecha_entrada:%d/%m/%Y %H:%M}"
+
+
+class FotoEntrada(TimeStampedModel):
+    registro = models.ForeignKey(RegistroVehicular, on_delete=models.PROTECT, related_name="fotos")
+    archivo = models.FileField(upload_to=ruta_foto_entrada, storage=almacenamiento_fotos_entrada)
+
+    class Meta:
+        ordering = ("created_at", "pk")
+        verbose_name = "foto de entrada"
+        verbose_name_plural = "fotos de entradas"
+
+    def __str__(self):
+        return f"Foto de entrada #{self.registro_id}"
 
