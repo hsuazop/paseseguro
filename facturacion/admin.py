@@ -10,11 +10,21 @@ from .models import (
     ComprobantePago,
     CuentaPagoColonia,
     CuotaMensual,
+    GastoMensual,
     Pago,
     ReciboSecuencia,
     TarifaColonia,
     TarifaEspecialCasa,
 )
+
+
+@admin.register(GastoMensual)
+class GastoMensualAdmin(ReadOnlyAdmin):
+    list_display = ("colonia", "tipo", "anio", "mes", "monto", "registrado_por", "created_at")
+    list_filter = ("colonia", "tipo", "anio", "mes")
+    search_fields = ("descripcion", "colonia__nombre", "registrado_por__username")
+    list_select_related = ("colonia", "registrado_por")
+    date_hierarchy = "created_at"
 
 
 @admin.register(TarifaColonia)

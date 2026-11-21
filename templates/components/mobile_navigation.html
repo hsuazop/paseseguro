@@ -7,9 +7,9 @@
     <a href="{% url 'historial_accesos' %}"><i class="bi bi-clock-history" aria-hidden="true"></i><span>Historial</span></a>
     <a href="{% url 'visitas_control' %}"><i class="bi bi-person-badge" aria-hidden="true"></i><span>Visitas</span></a>
   {% elif user.rol == 'TESORERO' and not user.is_superuser %}
-    <a href="{% url 'tesoreria' %}" data-nav-exact><i class="bi bi-house-door" aria-hidden="true"></i><span>Inicio</span></a>
+    <a href="{% url 'comprobantes_gestion' %}" data-nav-exact><i class="bi bi-house-door" aria-hidden="true"></i><span>Inicio</span></a>
     <a href="{% url 'pago_efectivo' %}"><i class="bi bi-cash-coin" aria-hidden="true"></i><span>Cobrar</span></a>
-    <a href="{% url 'comprobantes_gestion' %}"><i class="bi bi-file-earmark-check" aria-hidden="true"></i><span>Revisar</span></a>
+    <a href="{% url 'tesoreria' %}"><i class="bi bi-calendar-check" aria-hidden="true"></i><span>Vigilancia</span></a>
     <a href="{% url 'pagos_lista' %}"><i class="bi bi-wallet2" aria-hidden="true"></i><span>Pagos</span></a>
   {% else %}
     <a href="{% url 'dashboard' %}"><i class="bi bi-house-door" aria-hidden="true"></i><span>Inicio</span></a>

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Vehículos de la residencial · Pase Seguro{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="page-title">Vehículos de la residencial</h1><a class="btn btn-primary" href="{% url 'padron_vehicular_crear' %}">Registrar vehículo</a></div>
+<div class="d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="page-title">Vehículos de la residencial</h1><a class="btn btn-primary" href="{% url 'vehiculo_registrar_gestion' %}?tipo=padron">Registrar vehículo</a></div>
 <p class="text-muted">Registro de vehículos y propietarios de tu residencial. Puedes conservar registros incompletos y marcarlos para revisión.</p>
 <form method="get" class="row g-2 mb-3"><div class="col-md-7"><label for="buscar" class="form-label">Buscar placa, propietario, teléfono, vehículo o dirección</label><input id="buscar" name="q" value="{{ q }}" class="form-control"></div><div class="col-md-3"><label for="estado" class="form-label">Estado</label><select id="estado" name="estado" class="form-select"><option value="">Todos</option><option value="revisar" {% if estado == 'revisar' %}selected{% endif %}>Pendientes de revisar</option><option value="activos" {% if estado == 'activos' %}selected{% endif %}>Activos</option><option value="inactivos" {% if estado == 'inactivos' %}selected{% endif %}>Inactivos</option></select></div><div class="col-md-2 d-flex align-items-end"><button class="btn btn-outline-primary">Buscar</button></div></form>
 <p>{{ pagina.paginator.count }} registros</p>

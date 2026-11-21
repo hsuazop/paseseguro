@@ -196,6 +196,48 @@ class FinancialTestCase(TestCase):
         self.assertIsNotNone(comprobante.pago_id)
         self.assertEqual(cuota.estado, CuotaMensual.Estado.PAGADA)
 
+    def test_tesoreria_suma_solo_aplicaciones_del_periodo_sin_duplicar_casas(self):
+        enero, febrero = self.generar(1), self.generar(2)
+        Casa.objects.create(colonia=self.colonia, codigo="001-B", responsable_actual=self.responsable)
+        pago = self.pagar([
+            {"cuota_id": enero.pk, "monto": "500"},
+            {"cuota_id": febrero.pk, "monto": "200"},
+        ], "700")
+        self.client.force_login(self.tesorero)
+        for mes, cobrado, saldo, porcentaje in ((1, "500", "0", "100"), (2, "200", "300", "40")):
+            with self.subTest(mes=mes):
+                response = self.client.get(reverse("tesoreria"), {"anio": 2026, "mes": mes})
+                self.assertEqual(response.context["esperado"], Decimal("500"))
+                self.assertEqual(response.context["recaudado"], Decimal(cobrado))
+                self.assertEqual(response.context["saldo_periodo"], Decimal(saldo))
+                self.assertEqual(response.context["porcentaje"], Decimal(porcentaje))
+                self.assertEqual(len(response.context["aplicaciones"]), 1)
+                self.assertContains(response, reverse("recibo_detalle", args=[pago.pk]))
+        anular_pago(pago=pago, motivo="Prueba de anulación", usuario=self.admin)
+        response = self.client.get(reverse("tesoreria"), {"anio": 2026, "mes": 2})
+        self.assertEqual(response.context["recaudado"], 0)
+        self.assertEqual(response.context["saldo_periodo"], 500)
+        self.assertEqual(len(response.context["aplicaciones"]), 0)
+
+    def test_resumen_tesoreria_aisla_colonia_y_anio(self):
+        cuota = self.generar(1)
+        self.pagar([{"cuota_id": cuota.pk, "monto": "500"}], "500")
+        self.client.force_login(self.tesorero)
+        response = self.client.get(reverse("tesoreria"), {"anio": 2025, "mes": 1})
+        self.assertEqual(response.context["esperado"], 0)
+        self.assertEqual(response.context["recaudado"], 0)
+        self.assertEqual(response.context["porcentaje"], 0)
+        otro = Responsable.objects.create(nombre_completo="Vecino ajeno", identidad="999")
+        cuota_ajena = CuotaMensual.objects.create(casa=self.otra_casa, colonia=self.otra_colonia,
+            responsable=otro, anio=2026, mes=1, monto_original=900, saldo=900)
+        pago_ajeno = self.pagar([{"cuota_id": cuota_ajena.pk, "monto": "900"}], "900",
+            casa=self.otra_casa, responsable=otro)
+        response = self.client.get(reverse("tesoreria"), {"anio": 2026, "mes": 1, "colonia": self.otra_colonia.pk})
+        self.assertEqual(response.context["recaudado"], 500)
+        self.assertEqual(response.context["esperado"], 500)
+        self.assertNotContains(response, reverse("recibo_detalle", args=[pago_ajeno.pk]))
+        self.assertNotContains(response, "Vecino ajeno")
+
     def test_paginas_exportaciones_y_recibo_pdf(self):
         cuota = self.generar()
         pago = self.pagar([{"cuota_id": cuota.pk, "monto": "500"}], "500")

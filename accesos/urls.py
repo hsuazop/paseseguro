@@ -2,9 +2,12 @@ from django.urls import path
 
 from . import views
 from . import padron_views
+from . import vehiculos_gestion_views
 
 
 urlpatterns = [
+    path('vehiculos/registrar/', vehiculos_gestion_views.registrar, name='vehiculo_registrar_gestion'),
+    path('vehiculos-residentes/', vehiculos_gestion_views.lista_residentes, name='vehiculos_residentes_gestion'),
     path('vehiculos-residencial/', padron_views.lista, name='padron_vehicular'),
     path('vehiculos-residencial/nuevo/', padron_views.formulario, name='padron_vehicular_crear'),
     path('vehiculos-residencial/<int:pk>/editar/', padron_views.formulario, name='padron_vehicular_editar'),

@@ -5,7 +5,7 @@ from django.conf import settings
 
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.db import DatabaseError, IntegrityError, transaction
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -31,7 +31,7 @@ from .forms import (
     TarifaColoniaForm,
     TarifaEspecialForm,
 )
-from .models import ComprobanteCuota, ComprobantePago, CuentaPagoColonia, CuotaMensual, Pago, TarifaColonia, TarifaEspecialCasa
+from .models import AplicacionPago, ComprobanteCuota, ComprobantePago, CuentaPagoColonia, CuotaMensual, Pago, TarifaColonia, TarifaEspecialCasa
 from .services import anular_pago, generar_cuotas_mes, registrar_pago
 from .services.cuotas import asegurar_cuota, definir_tarifa
 
@@ -68,6 +68,9 @@ def tesoreria(request):
     colonias, colonia = _colonia_financiera_actual(request)
     filas = []
     pagadas = pendientes = por_validar = 0
+    esperado = recaudado = saldo_periodo = Decimal("0.00")
+    porcentaje = Decimal("0.00")
+    aplicaciones = []
     if colonia:
         casas = list(
             Casa.objects.filter(colonia=colonia, activa=True, responsable_actual__isnull=False)
@@ -78,6 +81,16 @@ def tesoreria(request):
             colonia=colonia, anio=anio, mes=mes
         ).exclude(estado=CuotaMensual.Estado.ANULADA)
         cuotas_por_responsable = {cuota.responsable_id: cuota for cuota in cuotas}
+        totales = cuotas.aggregate(esperado=Sum("monto_original"), saldo=Sum("saldo"))
+        esperado = totales["esperado"] or Decimal("0.00")
+        saldo_periodo = totales["saldo"] or Decimal("0.00")
+        aplicaciones = AplicacionPago.objects.filter(
+            cuota_mensual__in=cuotas, pago__anulado=False,
+        ).select_related(
+            "pago", "pago__casa", "pago__responsable", "pago__comprobante_origen",
+        ).order_by("pago__fecha_pago", "pago_id", "pk")
+        recaudado = aplicaciones.aggregate(total=Sum("monto_aplicado"))["total"] or Decimal("0.00")
+        porcentaje = recaudado / esperado * 100 if esperado else Decimal("0.00")
         comprobantes = (
             ComprobantePago.objects.filter(
                 colonia=colonia,
@@ -126,6 +139,11 @@ def tesoreria(request):
         "pagadas": pagadas,
         "pendientes": pendientes,
         "por_validar": por_validar,
+        "esperado": esperado,
+        "recaudado": recaudado,
+        "saldo_periodo": saldo_periodo,
+        "porcentaje": porcentaje,
+        "aplicaciones": aplicaciones,
     })
 
 
@@ -446,12 +464,26 @@ def cuenta_pago_residente(request, casa_id):
 @roles_requeridos(*ROLES_FINANCIEROS)
 @never_cache
 def comprobantes_gestion(request):
-    comprobantes = ComprobantePago.objects.filter(colonia__in=colonias_permitidas(request.user)).select_related(
-        "casa", "colonia", "responsable", "enviado_por", "revisado_por"
+    comprobantes = ComprobantePago.objects.filter(
+        colonia__in=colonias_permitidas(request.user), pago__isnull=True,
+    ).exclude(estado=ComprobantePago.Estado.APROBADO).select_related(
+        "casa", "colonia", "responsable", "enviado_por", "revisado_por", "pago"
     ).prefetch_related("cuotas")
+    residentes = list(comprobantes.order_by("responsable__nombre_completo", "responsable_id").values(
+        "responsable_id", "responsable__nombre_completo"
+    ).distinct())
+    residente = request.GET.get("residente", "")
+    if residente:
+        permitidos = {str(item["responsable_id"]) for item in residentes}
+        comprobantes = comprobantes.filter(responsable_id=residente) if residente in permitidos else comprobantes.none()
     estado = request.GET.get("estado")
     if estado:
         comprobantes = comprobantes.filter(estado=estado)
+    orden = "residente" if request.GET.get("orden") == "residente" else "antiguedad"
+    comprobantes = comprobantes.order_by(
+        *("responsable__nombre_completo", "responsable_id", "created_at", "pk")
+        if orden == "residente" else ("created_at", "pk")
+    )
     page_obj = paginar(request, comprobantes)
     for item in page_obj:
         cuotas = list(item.cuotas.all())
@@ -464,7 +496,10 @@ def comprobantes_gestion(request):
     return render(
         request,
         "facturacion/comprobantes_gestion.html",
-        {"comprobantes": page_obj, "page_obj": page_obj, "estados": ComprobantePago.Estado.choices,
+        {"comprobantes": page_obj, "page_obj": page_obj,
+         "estados": [(valor, etiqueta) for valor, etiqueta in ComprobantePago.Estado.choices
+                     if valor != ComprobantePago.Estado.APROBADO],
+         "residentes": residentes, "residente": residente, "orden": orden,
          "correo_configurado": bool(settings.EMAIL_HOST and settings.DEFAULT_FROM_EMAIL)},
     )
 

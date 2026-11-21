@@ -142,11 +142,16 @@ def portal_residente(request, casa_id):
     from reservas.models import Reserva
     from visitas.models import Visita
 
+    ultimo_mes_pagado = responsable.cuotas.filter(
+        colonia=casa.colonia, estado=CuotaMensual.Estado.PAGADA,
+    ).order_by("-anio", "-mes").first()
+
     contexto = {
         "casa": casa,
         "responsable": responsable,
         "saldo_total": obtener_saldo_casa(casa),
         "pagado_anio": pagado_anio,
+        "ultimo_mes_pagado": ultimo_mes_pagado,
         "visitas_activas": Visita.objects.filter(casa=casa, activa=True, fecha_inicio__date__gte=hoy).count(),
         "solicitudes_pendientes": SolicitudMensaje.objects.filter(casa=casa).exclude(
             estado=SolicitudMensaje.Estado.RESUELTO

@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Registrar vehículo · Pase Seguro{% endblock %}
+{% block content %}
+<h1 class="page-title">Registrar vehículo</h1>
+<p class="text-muted">Selecciona dónde quieres registrar el vehículo.</p>
+<nav class="nav nav-pills flex-column flex-sm-row gap-2 mb-4" aria-label="Tipo de registro">
+  <a class="nav-link {% if tipo_registro == 'padron' %}active{% endif %}" {% if tipo_registro == 'padron' %}aria-current="page"{% endif %} href="{% url 'vehiculo_registrar_gestion' %}?tipo=padron">Padrón de la residencial</a>
+  <a class="nav-link {% if tipo_registro == 'residente' %}active{% endif %}" {% if tipo_registro == 'residente' %}aria-current="page"{% endif %} href="{% url 'vehiculo_registrar_gestion' %}?tipo=residente">Vehículo de residente</a>
+</nav>
+<div class="row"><div class="col-lg-8"><div class="card"><div class="card-body">
+<h2 class="h5">{% if tipo_registro == 'padron' %}Padrón de la residencial{% else %}Vehículo de residente{% endif %}</h2>
+<p class="text-muted">{% if tipo_registro == 'padron' %}Ingresa los datos del propietario y del vehículo, como en el padrón importado del Excel. No requiere una casa registrada.{% else %}Selecciona una casa para vincular el vehículo a su residente. Aparecerá en «Mis vehículos» de su cuenta.{% endif %}</p>
+<form method="post">{% csrf_token %}<input type="hidden" name="tipo_registro" value="{{ tipo_registro }}">
+{{ form.non_field_errors }}
+{% for field in form %}<div class="mb-3">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>{% endfor %}
+<button class="btn btn-primary" type="submit">Guardar vehículo</button> <a class="btn btn-outline-secondary" href="{% url volver %}">Volver al listado</a>
+</form></div></div></div></div>
+{% endblock %}

@@ -75,7 +75,7 @@ class InicioAppTests(TestCase):
     def test_inicio_lleva_al_panel_del_rol(self):
         from accounts.models import User
 
-        for rol, destino in ((User.Rol.RESIDENTE, "mi_cuenta"), (User.Rol.GUARDIA, "dashboard_guardia"), (User.Rol.TESORERO, "tesoreria")):
+        for rol, destino in ((User.Rol.RESIDENTE, "mi_cuenta"), (User.Rol.GUARDIA, "dashboard_guardia"), (User.Rol.TESORERO, "comprobantes_gestion")):
             with self.subTest(rol=rol):
                 user = User.objects.create_user("inicio-" + rol, rol=rol)
                 self.client.force_login(user)

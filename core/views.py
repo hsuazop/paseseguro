@@ -45,7 +45,7 @@ def dashboard(request):
     if request.user.rol == User.Rol.GUARDIA and not request.user.es_superadmin:
         return redirect("dashboard_guardia")
     if request.user.rol == User.Rol.TESORERO and not request.user.es_superadmin:
-        return redirect("tesoreria")
+        return redirect("comprobantes_gestion")
 
     anio, mes = _periodo_seleccionado(request)
     colonias = colonias_permitidas(request.user).filter(activa=True)

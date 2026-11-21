@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% load app_tags l10n %}
+{% block title %}Gastos mensuales · Pase Seguro{% endblock %}
+{% block content %}
+<div class="page-header d-flex flex-wrap justify-content-between gap-3 mb-4"><div><h1 class="page-title">Gastos mensuales</h1><p class="page-subtitle">Registra y consulta los gastos de tu residencial.</p></div><div>{% if colonia %}<a class="btn btn-primary" href="{% url 'gasto_crear' %}?colonia={{ colonia.pk|unlocalize }}&anio={{ anio|unlocalize }}&mes={{ mes }}">Registrar gasto</a> <a class="btn btn-outline-primary" href="{% url 'resumen_contable' %}?colonia={{ colonia.pk|unlocalize }}&anio={{ anio|unlocalize }}&mes={{ mes }}">Ver resumen contable</a>{% endif %}</div></div>
+{% include 'facturacion/filtro_periodo_gastos.html' %}
+{% if colonia %}<h2 class="h5">{{ colonia.nombre }} · {{ mes|nombre_mes }} {{ anio|unlocalize }}</h2>
+<div class="card metric-card mb-3"><div class="card-body"><div class="metric-label">Total de gastos del mes</div><div class="metric-value">{{ total_gastos|moneda }}</div><span class="small text-muted">{{ page_obj.paginator.count }} registros</span></div></div>
+<div class="card"><div class="table-responsive"><table data-mobile-cards class="table align-middle mb-0"><thead><tr><th>Tipo de gasto</th><th>Descripción</th><th>Monto</th><th>Registrado por</th><th></th></tr></thead><tbody>
+{% for gasto in page_obj %}<tr><td>{{ gasto.get_tipo_display }}</td><td>{{ gasto.descripcion|linebreaksbr }}</td><td>{{ gasto.monto|moneda }}</td><td>{{ gasto.registrado_por.nombre_completo }}<div class="small text-muted">{{ gasto.created_at|date:'d/m/Y H:i' }}</div></td><td><a class="btn btn-sm btn-outline-primary" href="{% url 'gasto_editar' gasto.pk %}">Editar</a></td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-4">No hay gastos registrados en este período.</td></tr>{% endfor %}</tbody></table></div></div>
+{% include 'components/pagination.html' %}{% else %}<div class="alert alert-warning">No tienes una residencial asignada.</div>{% endif %}
+{% endblock %}

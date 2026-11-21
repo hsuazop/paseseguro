@@ -10,6 +10,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
   <link href="{% static 'core/app.css' %}?v=20261115" rel="stylesheet">
   <link href="{% static 'core/mobile.css' %}?v=20261115" rel="stylesheet">
+  {% include 'components/select_search_styles.html' %}
 </head>
 <body class="{% if user.is_authenticated %}management-body{% endif %}">
 <a class="skip-link" href="#main-content">Ir al contenido</a>
@@ -36,11 +37,14 @@
         <a class="nav-link" href="{% url 'historial_accesos' %}"><i class="bi bi-clock-history"></i> Entradas y salidas</a>
         <a class="nav-link" href="{% url 'visitas_control' %}"><i class="bi bi-person-badge"></i> Visitas programadas</a>
       {% elif user.rol == 'TESORERO' and not user.is_superuser %}
+        <a class="nav-link" href="{% url 'comprobantes_gestion' %}"><i class="bi bi-file-earmark-check"></i> Solicitudes de comprobantes</a>
+        <a class="nav-link" href="{% url 'pago_efectivo' %}"><i class="bi bi-cash-coin"></i> Registrar efectivo</a>
         <a class="nav-link" href="{% url 'tesoreria' %}"><i class="bi bi-calendar-check"></i> Vigilancia del mes</a>
-        <a class="nav-link action-link" href="{% url 'pago_efectivo' %}"><i class="bi bi-cash-coin"></i> Registrar efectivo</a>
-        <a class="nav-link" href="{% url 'comprobantes_gestion' %}"><i class="bi bi-file-earmark-check"></i> Validar comprobantes</a>
         <a class="nav-link" href="{% url 'pagos_lista' %}"><i class="bi bi-cash-coin"></i> Pagos</a>
+        <a class="nav-link" href="{% url 'gastos_lista' %}"><i class="bi bi-receipt"></i> Gastos mensuales</a>
+        <a class="nav-link" href="{% url 'resumen_contable' %}"><i class="bi bi-bar-chart-line"></i> Resumen contable</a>
         <a class="nav-link" href="{% url 'padron_vehicular' %}"><i class="bi bi-car-front"></i> Vehículos de la residencial</a>
+        <a class="nav-link" href="{% url 'vehiculos_residentes_gestion' %}"><i class="bi bi-car-front-fill"></i> Vehículos de residentes</a>
         <a class="nav-link" href="{% url 'reporte_morosidad' %}"><i class="bi bi-exclamation-circle"></i> Morosidad</a>
       {% else %}
         <a class="nav-link" href="{% url 'dashboard' %}"><i class="bi bi-calendar-check"></i> Control mensual</a>
@@ -48,10 +52,13 @@
         <a class="nav-link" href="{% url 'casas_lista' %}"><i class="bi bi-houses"></i> Casas</a>
         <a class="nav-link" href="{% url 'cuotas_lista' %}"><i class="bi bi-calendar3"></i> Cuotas</a>
         <a class="nav-link" href="{% url 'pagos_lista' %}"><i class="bi bi-cash-coin"></i> Pagos</a>
+        <a class="nav-link" href="{% url 'gastos_lista' %}"><i class="bi bi-receipt"></i> Gastos mensuales</a>
+        <a class="nav-link" href="{% url 'resumen_contable' %}"><i class="bi bi-bar-chart-line"></i> Resumen contable</a>
         <a class="nav-link" href="{% url 'comprobantes_gestion' %}"><i class="bi bi-file-earmark-check"></i> Comprobantes</a>
         <a class="nav-link action-link" href="{% url 'pago_nuevo' %}"><i class="bi bi-plus-circle"></i> Registrar pago</a>
         <div class="nav-section">Operación</div>
         <a class="nav-link" href="{% url 'padron_vehicular' %}"><i class="bi bi-car-front"></i> Vehículos de la residencial</a>
+        <a class="nav-link" href="{% url 'vehiculos_residentes_gestion' %}"><i class="bi bi-car-front-fill"></i> Vehículos de residentes</a>
         <a class="nav-link" href="{% url 'visitas_control' %}"><i class="bi bi-person-badge"></i> Visitas</a>
         <a class="nav-link" href="{% url 'bandeja_comunidad' %}"><i class="bi bi-chat-square-text"></i> Comunidad</a>
         <a class="nav-link" href="{% url 'reservas_gestion' %}"><i class="bi bi-calendar2-check"></i> Reservaciones</a>
@@ -84,6 +91,7 @@
 {% if user.is_authenticated %}{% include 'components/mobile_navigation.html' %}{% endif %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{% static 'core/mobile.js' %}?v=20261115" defer></script>
+{% include 'components/select_search_scripts.html' %}
 {% block scripts %}{% endblock %}
 {% if user.rol == 'GUARDIA' %}<script src="{% static 'core/push.js' %}?v=20261116-2" defer></script>{% endif %}
 </body>

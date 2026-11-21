@@ -1,6 +1,7 @@
 from django import forms
 
 from core.forms import aplicar_bootstrap
+from colonias.models import Casa
 
 from .models import RegistroVehicular, Vehiculo, VehiculoColonia
 
@@ -25,6 +26,37 @@ class VehiculoForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["placa"].widget.attrs.update({"autocapitalize": "characters", "placeholder": "HAA1234"})
         aplicar_bootstrap(self)
+
+
+class CasaVehiculoChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, casa):
+        return f"{casa.colonia.nombre} · Casa {casa.codigo} · {casa.responsable_actual.nombre_completo}"
+
+
+class VehiculoResidenteGestionForm(VehiculoForm):
+    casa = CasaVehiculoChoiceField(queryset=Casa.objects.none(), label="Casa y residente")
+
+    class Meta(VehiculoForm.Meta):
+        fields = ("casa",) + VehiculoForm.Meta.fields
+
+    def __init__(self, *args, colonias, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["casa"].queryset = Casa.objects.filter(
+            colonia__in=colonias, activa=True, responsable_actual__activo=True,
+        ).select_related("colonia", "responsable_actual").order_by("colonia__nombre", "codigo")
+        self.fields["casa"].help_text = "El vehículo quedará vinculado al responsable actual de esta casa."
+
+    def clean(self):
+        data = super().clean()
+        casa = data.get("casa")
+        placa = ''.join(data.get("placa", "").upper().split())
+        data["placa"] = placa
+        if casa:
+            self.instance.colonia = casa.colonia
+            self.instance.responsable = casa.responsable_actual
+            if placa and Vehiculo.objects.filter(colonia=casa.colonia, placa=placa).exclude(pk=self.instance.pk).exists():
+                self.add_error("placa", "Esta placa ya está registrada en los vehículos de residentes de esta colonia.")
+        return data
 
 
 class RegistroEntradaForm(forms.ModelForm):

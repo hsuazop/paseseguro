@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Vehículos de residentes · Pase Seguro{% endblock %}
+{% block content %}
+<div class="page-header d-flex flex-wrap justify-content-between gap-2 mb-3"><h1 class="page-title">Vehículos de residentes</h1><a class="btn btn-primary" href="{% url 'vehiculo_registrar_gestion' %}?tipo=residente">Registrar vehículo</a></div>
+<p class="text-muted">Vehículos vinculados a una casa y a su residente.</p>
+<form method="get" class="row g-2 mb-3">
+  <div class="col-md-7"><label class="form-label" for="buscar-vehiculo">Buscar placa, residente, casa, marca o modelo</label><input class="form-control" type="search" id="buscar-vehiculo" name="q" value="{{ q }}"></div>
+  <div class="col-md-3"><label class="form-label" for="estado-vehiculo">Estado</label><select class="form-select" id="estado-vehiculo" name="estado"><option value="">Todos</option><option value="activos" {% if estado == 'activos' %}selected{% endif %}>Activos</option><option value="inactivos" {% if estado == 'inactivos' %}selected{% endif %}>Inactivos</option></select></div>
+  <div class="col-md-2 d-flex align-items-end"><button class="btn btn-outline-primary">Buscar</button></div>
+</form>
+<p>{{ page_obj.paginator.count }} vehículos</p>
+<div class="card"><div class="table-responsive"><table data-mobile-cards class="table align-middle mb-0"><thead><tr><th>Placa</th><th>Residente</th><th>Casa / residencial</th><th>Vehículo</th><th>Estado</th></tr></thead><tbody>
+{% for vehiculo in vehiculos %}<tr><td><strong>{{ vehiculo.placa }}</strong></td><td>{{ vehiculo.responsable.nombre_completo }}</td><td>{{ vehiculo.casa.codigo }}<div class="small text-muted">{{ vehiculo.colonia.nombre }}</div></td><td>{{ vehiculo.get_tipo_display }} · {{ vehiculo.marca }} {{ vehiculo.modelo }}<div class="small text-muted">{{ vehiculo.color }}</div></td><td>{% if vehiculo.activo %}<span class="badge text-bg-success">Activo</span>{% else %}<span class="badge text-bg-secondary">Inactivo</span>{% endif %}</td></tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-4">No hay vehículos de residentes para esta búsqueda.</td></tr>{% endfor %}
+</tbody></table></div></div>
+{% include 'components/pagination.html' %}
+{% endblock %}

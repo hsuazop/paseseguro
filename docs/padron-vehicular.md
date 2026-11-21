@@ -10,6 +10,14 @@ y del control de entradas y salidas. Su única clave foránea es `colonia`.
 Propietario, teléfono y dirección son texto, sin enlaces a casas ni usuarios.
 La desactivación se realiza editando la casilla Activo; no borra el registro.
 
+El menú también incluye **Vehículos de residentes**, que lista los vehículos
+vinculados a una casa y a su responsable. Ambos listados tienen el botón
+**Registrar vehículo**, que abre `/vehiculos/registrar/` y permite elegir el tipo.
+Para vehículos de residentes, las casas disponibles pertenecen únicamente a las
+colonias permitidas y deben estar activas y tener un responsable activo.
+La colonia y el responsable se obtienen de la casa seleccionada en el servidor.
+El registro aparece en **Mis vehículos** del residente; no se copia al padrón.
+
 ## Importación
 
 ```sh

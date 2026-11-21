@@ -142,6 +142,40 @@ class CuotaMensual(TimeStampedModel):
         return f"{self.casa} - {self.periodo}"
 
 
+class GastoMensual(TimeStampedModel):
+    class Tipo(models.TextChoices):
+        VIGILANCIA = "VIGILANCIA", "Pago de Vigilancia"
+        PINTURA = "PINTURA", "Pintura parqueo"
+        ALBANIL = "ALBANIL", "Trabajo de albañil"
+        OTRO = "OTRO", "Otro gasto"
+
+    colonia = models.ForeignKey("colonias.Colonia", on_delete=models.PROTECT, related_name="gastos")
+    tipo = models.CharField("tipo de gasto", max_length=20, choices=Tipo.choices)
+    anio = models.PositiveSmallIntegerField("año", validators=[MinValueValidator(2020), MaxValueValidator(2100)])
+    mes = models.PositiveSmallIntegerField(choices=CuotaMensual.MESES)
+    monto = models.DecimalField("monto (L)", max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    descripcion = models.TextField("descripción")
+    registrado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="gastos_registrados")
+
+    class Meta:
+        ordering = ("-anio", "-mes", "-created_at", "-pk")
+        verbose_name = "gasto mensual"
+        verbose_name_plural = "gastos mensuales"
+        indexes = [models.Index(fields=["colonia", "anio", "mes"], name="gasto_colonia_periodo_idx")]
+        constraints = [
+            models.CheckConstraint(condition=Q(monto__gt=0), name="gasto_monto_positivo"),
+            models.CheckConstraint(condition=Q(mes__gte=1, mes__lte=12), name="gasto_mes_valido"),
+            models.CheckConstraint(condition=Q(anio__gte=2020, anio__lte=2100), name="gasto_anio_valido"),
+        ]
+
+    @property
+    def periodo(self):
+        return f"{self.get_mes_display()} {self.anio}"
+
+    def __str__(self):
+        return f"{self.colonia} · {self.periodo} · {self.get_tipo_display()}"
+
+
 class ReciboSecuencia(models.Model):
     anio = models.PositiveSmallIntegerField("año", unique=True)
     ultimo_numero = models.PositiveIntegerField(default=0)
@@ -326,7 +360,7 @@ class ComprobantePago(TimeStampedModel):
     def estado_visible(self):
         if self.estado_notificacion == 'PAGO_ANULADO':
             return 'Pago anulado'
-        return 'Registrado (aprobado)' if self.estado == self.Estado.APROBADO else self.get_estado_display()
+        return 'Pagado' if self.estado == self.Estado.APROBADO else self.get_estado_display()
 
 
 class ComprobanteCuota(models.Model):

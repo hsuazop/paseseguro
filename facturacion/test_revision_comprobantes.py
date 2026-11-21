@@ -1,7 +1,10 @@
 from datetime import date
+from datetime import timedelta
 from unittest.mock import patch
 from django.core import mail
 from django.test import TestCase, Client, override_settings
+from django.urls import reverse
+from django.utils import timezone
 from accounts.models import User, UsuarioColonia
 from colonias.models import Casa, Colonia
 from residentes.models import Responsable
@@ -37,7 +40,7 @@ class RevisionComprobanteTests(TestCase):
         self.assertEqual(self.item.cuotas.get().saldo,0)
         self.assertEqual(self.item.periodos_solicitados,[{'anio':2026,'mes':10}])
         self.assertEqual(len(mail.outbox),1);self.assertEqual(mail.outbox[0].to,['residente@example.com'])
-        self.assertIn('Registrado',mail.outbox[0].body)
+        self.assertIn('Pagado',mail.outbox[0].body)
 
     def test_doble_aceptacion_no_duplica_pago_ni_correo(self):
         self.aceptar();response=self.aceptar(mes=12)
@@ -91,7 +94,7 @@ class RevisionComprobanteTests(TestCase):
 
     def test_tabla_miniatura_periodos_y_botones(self):
         response=self.client.get('/comprobantes/')
-        for fragment in ['data-preview-type="image"','Guardar y aceptar comprobante','Enviar correo',f'form="revision-{self.item.pk}"','name="anio"','name="mes"']:
+        for fragment in ['data-preview-type="image"','Confirmar pago y generar recibo','Enviar correo',f'form="revision-{self.item.pk}"','name="anio"','name="mes"']:
             self.assertContains(response,fragment)
         self.assertEqual(self.client.get(self.url).status_code,200)
 
@@ -99,3 +102,81 @@ class RevisionComprobanteTests(TestCase):
         response=self.client.post(self.url,{'estado':'APROBADO','anio':2026})
         self.assertContains(response,'Indica tanto')
         self.assertFalse(Pago.objects.exists())
+
+    def test_inicio_tesorero_solicitudes_y_orden_por_antiguedad_o_residente(self):
+        self.assertRedirects(self.client.get(reverse('dashboard')), reverse('comprobantes_gestion'))
+        persona = Responsable.objects.create(nombre_completo='Ana', identidad='456')
+        casa = Casa.objects.create(colonia=self.colonia, codigo='A2', responsable_actual=persona)
+        nuevo = ComprobantePago.objects.create(casa=casa, colonia=self.colonia,
+            responsable=persona, enviado_por=self.user, monto=500,
+            metodo_pago='TRANSFERENCIA', archivo='comprobantes/ana.png')
+        ComprobantePago.objects.filter(pk=self.item.pk).update(created_at=timezone.now()-timedelta(days=2))
+        response = self.client.get(reverse('comprobantes_gestion'))
+        self.assertEqual([c.pk for c in response.context['comprobantes']], [self.item.pk, nuevo.pk])
+        response = self.client.get(reverse('comprobantes_gestion'), {'orden': 'residente'})
+        self.assertEqual([c.pk for c in response.context['comprobantes']], [nuevo.pk, self.item.pk])
+        response = self.client.get(reverse('comprobantes_gestion'), {'residente': persona.pk})
+        self.assertEqual([c.pk for c in response.context['comprobantes']], [nuevo.pk])
+        otra = Colonia.objects.create(nombre='Otra colonia')
+        Casa.objects.filter(pk=casa.pk).update(colonia=otra)
+        ComprobantePago.objects.filter(pk=nuevo.pk).update(colonia=otra)
+        response = self.client.get(reverse('comprobantes_gestion'), {'colonia': otra.pk})
+        self.assertEqual([c.pk for c in response.context['comprobantes']], [self.item.pk])
+        self.assertNotContains(response, 'Ana')
+        self.assertEqual(self.client.post(reverse('comprobante_revisar', args=[nuevo.pk]), {'estado':'APROBADO'}).status_code, 404)
+
+    def test_confirmacion_muestra_recibo_y_periodo_pagado_al_residente(self):
+        response = self.client.get(reverse('comprobantes_gestion'))
+        self.assertNotContains(response, 'Ver recibo')
+        self.assertEqual(self.aceptar(mes=10).status_code, 302)
+        self.item.refresh_from_db()
+        self.cuota.refresh_from_db()
+        self.assertEqual(self.cuota.estado, 'PAGADA')
+        self.assertEqual(self.cuota.saldo, 0)
+        self.assertEqual(self.item.estado_visible, 'Pagado')
+        recibo = reverse('recibo_detalle', args=[self.item.pago_id])
+        response = self.client.get(reverse('comprobantes_gestion'))
+        self.assertNotContains(response, recibo)
+        self.assertEqual(response.context['page_obj'].paginator.count, 0)
+        response = self.client.get(reverse('comprobantes_gestion'), {'estado': 'APROBADO'})
+        self.assertEqual(response.context['page_obj'].paginator.count, 0)
+        response = self.client.get(reverse('tesoreria'), {'anio': 2026, 'mes': 10})
+        self.assertContains(response, recibo)
+        self.assertContains(response, 'Ver comprobante / correo')
+        self.assertEqual(response.context['recaudado'], 500)
+        self.assertNotContains(response, 'Confirmar pago y generar recibo')
+        self.assertEqual(self.client.get(recibo).status_code, 200)
+        self.client.force_login(self.user)
+        response = self.client.get(reverse('comprobantes_residente', args=[self.casa.pk]))
+        self.assertContains(response, 'Pagado')
+        self.assertContains(response, recibo)
+        self.assertEqual(self.client.get(recibo).status_code, 200)
+        response = self.client.get(reverse('mi_cuenta_casa', args=[self.casa.pk]), {'anio': 2026})
+        octubre = next(c for c in response.context['cuotas'] if c['numero'] == 10)
+        self.assertEqual(octubre['cuota'].estado, 'PAGADA')
+
+    def test_correo_siempre_disponible_sin_destinatario_y_sin_pago(self):
+        self.user.email = ''
+        self.user.save()
+        response = self.client.get(reverse('comprobantes_gestion'))
+        self.assertContains(response, '<button class="btn btn-outline-primary mt-2">Enviar correo</button>', html=True)
+        self.client.post(self.correo)
+        self.item.refresh_from_db()
+        self.assertEqual(self.item.estado, 'PENDIENTE')
+        self.assertIsNone(self.item.pago_id)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_abono_no_marca_mes_completo_y_anulacion_restaura_estado(self):
+        from .services import anular_pago
+        self.item.monto = 200
+        self.item.save()
+        self.aceptar(mes=10)
+        self.cuota.refresh_from_db()
+        self.item.refresh_from_db()
+        self.assertEqual(self.cuota.estado, 'PARCIAL')
+        self.assertEqual(self.cuota.saldo, 300)
+        anular_pago(pago=self.item.pago, motivo='Prueba de anulación', usuario=self.tesorero)
+        self.item.refresh_from_db()
+        self.cuota.refresh_from_db()
+        self.assertEqual(self.item.estado_visible, 'Pago anulado')
+        self.assertEqual(self.cuota.estado, 'PENDIENTE')

@@ -1,0 +1,7 @@
+{% load l10n %}
+<div class="card mb-4"><div class="card-body"><form method="get" class="row g-3 align-items-end">
+{% if elegir_colonia %}<div class="col-md-4"><label class="form-label" for="colonia">Residencial</label><select class="form-select" name="colonia" id="colonia">{% for item in colonias %}<option value="{{ item.pk|unlocalize }}" {% if item.pk == colonia.pk %}selected{% endif %}>{{ item.nombre }}</option>{% endfor %}</select></div>{% endif %}
+<div class="col-7 col-md-3"><label class="form-label" for="mes">Mes</label><select class="form-select" name="mes" id="mes">{% for numero,nombre in meses %}<option value="{{ numero }}" {% if numero == mes %}selected{% endif %}>{{ nombre }}</option>{% endfor %}</select></div>
+<div class="col-5 col-md-2"><label class="form-label" for="anio">Año</label><input class="form-control" type="number" name="anio" id="anio" value="{{ anio|unlocalize }}" min="2020" max="2100"></div>
+<div class="col-md-3"><button class="btn btn-primary">Consultar</button></div>
+</form></div></div>

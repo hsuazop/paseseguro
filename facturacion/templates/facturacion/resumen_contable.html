@@ -1,0 +1,20 @@
+{% extends 'base.html' %}{% load app_tags l10n %}
+{% block title %}Resumen contable · Pase Seguro{% endblock %}
+{% block content %}
+<h1 class="page-title">Resumen contable mensual</h1><p class="page-subtitle mb-4">Recaudación, gastos y diferencia por mes y año.</p>
+{% include 'facturacion/filtro_periodo_gastos.html' %}
+{% if colonia %}
+<h2 class="h5">{{ colonia.nombre }} · {{ mes|nombre_mes }} {{ anio|unlocalize }}</h2>
+<p class="small text-muted">La recaudación corresponde al mes de la cuota pagada, igual que en Vigilancia del mes. Incluye abonos y excluye pagos anulados. El saldo es recaudación menos gastos del período; no representa el saldo bancario.</p>
+<div class="row g-3 mb-4">
+<div class="col-12 col-md-4"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Recaudado del mes</div><div class="metric-value text-success">{{ recaudado|moneda }}</div><a href="{% url 'tesoreria' %}?colonia={{ colonia.pk|unlocalize }}&anio={{ anio|unlocalize }}&mes={{ mes }}">Ver pagos y recibos</a></div></div></div>
+<div class="col-12 col-md-4"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Gastos del mes</div><div class="metric-value">{{ gastos|moneda }}</div><a href="{% url 'gastos_lista' %}?colonia={{ colonia.pk|unlocalize }}&anio={{ anio|unlocalize }}&mes={{ mes }}">Ver gastos</a></div></div></div>
+<div class="col-12 col-md-4"><div class="card metric-card h-100"><div class="card-body"><div class="metric-label">Saldo del mes</div><div class="metric-value {% if saldo < 0 %}text-danger{% else %}text-success{% endif %}">{{ saldo|moneda }}</div></div></div></div>
+</div>
+<div class="card mb-4"><div class="card-body"><h2 class="h5">Gastos por tipo · {{ mes|nombre_mes }}</h2>{% for item in detalle_gastos %}<div class="d-flex justify-content-between gap-3 border-bottom py-2"><span>{{ item.tipo }}</span><strong>{{ item.total|moneda }}</strong></div>{% empty %}<p class="text-muted mb-0">No hay gastos registrados en este mes.</p>{% endfor %}</div></div>
+<h2 class="h5">Resumen de {{ anio|unlocalize }}</h2>
+<div class="card"><div class="table-responsive"><table data-mobile-cards class="table align-middle mb-0"><thead><tr><th>Mes</th><th>Recaudado</th><th>Gastos</th><th>Saldo</th></tr></thead><tbody>
+{% for fila in filas %}<tr {% if fila.mes == mes %}class="table-primary"{% endif %}><td><a href="?colonia={{ colonia.pk|unlocalize }}&anio={{ anio|unlocalize }}&mes={{ fila.mes }}">{{ fila.nombre }}</a></td><td>{{ fila.recaudado|moneda }}</td><td>{{ fila.gastos|moneda }}</td><td class="{% if fila.saldo < 0 %}text-danger{% else %}text-success{% endif %}">{{ fila.saldo|moneda }}</td></tr>{% endfor %}
+</tbody></table></div><div class="card-footer"><strong>Total anual:</strong> Recaudado {{ recaudado_anio|moneda }} · Gastos {{ gastos_anio|moneda }} · Saldo {{ saldo_anio|moneda }}</div></div>
+{% else %}<div class="alert alert-warning">No tienes una residencial asignada.</div>{% endif %}
+{% endblock %}

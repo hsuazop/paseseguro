@@ -25,10 +25,15 @@ from colonias import views as colonia_views
 from core import views as core_views
 from core.pwa import android_assetlinks, app_manifest
 from facturacion import views as factura_views
+from facturacion import gastos_views
 from reportes import views as reporte_views
 from residentes import views as residente_views
 
 urlpatterns = [
+    path('gastos/', gastos_views.lista, name='gastos_lista'),
+    path('gastos/nuevo/', gastos_views.formulario, name='gasto_crear'),
+    path('gastos/<int:pk>/editar/', gastos_views.formulario, name='gasto_editar'),
+    path('resumen-contable/', gastos_views.resumen, name='resumen_contable'),
     path('.well-known/assetlinks.json', android_assetlinks, name='android_assetlinks'),
     path('manifest.webmanifest', app_manifest, name='app_manifest'),
     path('admin/', admin.site.urls),
