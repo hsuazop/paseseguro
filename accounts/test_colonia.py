@@ -1,3 +1,4 @@
+from accesos.test_uploads import foto_prueba, aislar_fotos
 from datetime import date
 from io import BytesIO
 
@@ -76,6 +77,7 @@ class ColoniaImplicitaTests(TestCase):
                 self.assertContains(response, 'name="colonia"')
 
     def test_guardia_ignora_colonia_en_get_post_y_sesion(self):
+        aislar_fotos(self)
         self.client.force_login(self.guardia)
         sesion = self.client.session
         sesion["colonia_actual"] = self.otra.pk
@@ -84,7 +86,7 @@ class ColoniaImplicitaTests(TestCase):
         self.assertEqual(response.context["colonia"], self.colonia)
         response = self.client.post(reverse("registrar_entrada"), {
             "colonia": self.otra.pk, "placa": "HAA1234", "personas": 1,
-            "tipo_acceso": RegistroVehicular.TipoAcceso.VISITANTE,
+            "tipo_acceso": RegistroVehicular.TipoAcceso.VISITANTE, "fotos": foto_prueba(),
         })
         self.assertEqual(response.status_code, 302)
         self.assertEqual(RegistroVehicular.objects.get().colonia, self.colonia)

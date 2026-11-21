@@ -61,8 +61,7 @@ def registrar_entrada(request):
     if not colonia:
         messages.error(request, "No tienes una colonia activa asignada.")
         return redirect("dashboard_guardia")
-    casas = Casa.objects.filter(colonia=colonia, activa=True).select_related("responsable_actual")
-    form = RegistroEntradaForm(request.POST if request.method == "POST" else None, request.FILES or None, casas_queryset=casas)
+    form = RegistroEntradaForm(request.POST if request.method == "POST" else None, request.FILES or None, colonia=colonia)
     if request.method == "POST" and form.is_valid():
         try:
             registro = guardar_entrada(form, colonia, request.user)
@@ -72,7 +71,7 @@ def registrar_entrada(request):
             logging.getLogger(__name__).exception("No se pudo guardar la entrada con sus fotos.")
             form.add_error(None, "No se pudo guardar la entrada. Adjunta las fotos nuevamente e intenta otra vez.")
         else:
-            messages.success(request, f"Entrada de {registro.placa} registrada.")
+            messages.success(request, "Entrada registrada correctamente.")
             return redirect("dashboard_guardia")
     return render(
         request,

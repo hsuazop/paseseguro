@@ -89,8 +89,8 @@ class RegistroVehicular(TimeStampedModel):
 
     colonia = models.ForeignKey("colonias.Colonia", on_delete=models.PROTECT, related_name="registros_vehiculares")
     vehiculo = models.ForeignKey(Vehiculo, on_delete=models.PROTECT, null=True, blank=True, related_name="accesos")
-    placa = models.CharField(max_length=20)
-    tipo_acceso = models.CharField(max_length=15, choices=TipoAcceso.choices)
+    placa = models.CharField(max_length=20, blank=True)
+    tipo_acceso = models.CharField(max_length=15, choices=TipoAcceso.choices, blank=True)
     casa_destino = models.ForeignKey(
         "colonias.Casa",
         on_delete=models.PROTECT,
@@ -107,7 +107,7 @@ class RegistroVehicular(TimeStampedModel):
     )
     conductor = models.CharField(max_length=180, blank=True)
     identidad_conductor = models.CharField(max_length=30, blank=True)
-    personas = models.PositiveSmallIntegerField(default=1, validators=[MinValueValidator(1)])
+    personas = models.PositiveSmallIntegerField(null=True, blank=True, validators=[MinValueValidator(1)])
     fecha_entrada = models.DateTimeField(default=timezone.now)
     fecha_salida = models.DateTimeField(null=True, blank=True)
     guardia_entrada = models.ForeignKey(

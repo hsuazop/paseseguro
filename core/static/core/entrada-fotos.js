@@ -59,6 +59,13 @@
   document.getElementById('elegir-fotos').addEventListener('click', () => input.click());
   camera.addEventListener('change', () => { add(camera.files); camera.value = ''; });
   input.addEventListener('change', () => add(input.files));
+  input.form.addEventListener('submit', event => {
+    if (!input.files.length) {
+      event.preventDefault();
+      error.textContent = 'Adjunta al menos una foto de la entrada.';
+      document.getElementById('tomar-foto').focus();
+    }
+  });
   input.form.addEventListener('reset', () => { photos = []; error.textContent = ''; render(); });
   render();
 })();

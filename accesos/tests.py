@@ -1,3 +1,4 @@
+from accesos.test_uploads import foto_prueba, aislar_fotos
 from django.test import TestCase
 from django.urls import reverse
 
@@ -10,6 +11,7 @@ from .models import RegistroVehicular, Vehiculo
 
 class ControlVehicularTests(TestCase):
     def setUp(self):
+        aislar_fotos(self)
         self.colonia = Colonia.objects.create(nombre="Residencial Accesos")
         self.otra_colonia = Colonia.objects.create(nombre="Residencial Ajena")
         self.guardia = User.objects.create_user("guardia-test", password="Clave2026!", rol=User.Rol.GUARDIA)
@@ -58,6 +60,7 @@ class ControlVehicularTests(TestCase):
                 "placa": "haa 1234",
                 "tipo_acceso": RegistroVehicular.TipoAcceso.VISITANTE,
                 "personas": 1,
+                "fotos": foto_prueba(),
             },
         )
         self.assertEqual(response.status_code, 302)

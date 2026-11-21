@@ -8,9 +8,10 @@ from django.core.files.storage import FileSystemStorage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from accounts.models import User, UsuarioColonia
-from colonias.models import Colonia
+from colonias.models import Casa, Colonia
 from .models import FotoEntrada, RegistroVehicular
 
 
@@ -54,12 +55,55 @@ class FotosEntradaTests(TestCase):
             self.assertIn("no-store", response["Cache-Control"])
             self.assertEqual(response["X-Content-Type-Options"], "nosniff")
             self.assertTrue(b''.join(response.streaming_content))
-            response.close()
 
-    def test_fotos_opcionales(self):
-        self.assertEqual(self.client.post(self.url, self.datos).status_code, 302)
-        self.assertEqual(RegistroVehicular.objects.count(), 1)
+    def test_foto_obligatoria(self):
+        response = self.client.post(self.url, self.datos)
+        self.assertIn("fotos", response.context["form"].errors)
+        self.assertFalse(RegistroVehicular.objects.exists())
         self.assertFalse(FotoEntrada.objects.exists())
+
+    def test_solo_foto_guarda_fecha_hora_y_guardia(self):
+        antes = timezone.now()
+        response = self.client.post(self.url, {"fotos": self.foto()})
+        self.assertRedirects(response, reverse("dashboard_guardia"))
+        registro = RegistroVehicular.objects.get()
+        self.assertEqual(registro.placa, "")
+        self.assertEqual(registro.tipo_acceso, "")
+        self.assertIsNone(registro.personas)
+        self.assertIsNone(registro.casa_destino)
+        self.assertEqual(registro.guardia_entrada, self.guardia)
+        self.assertEqual(registro.colonia, self.colonia)
+        self.assertEqual(registro.fotos.count(), 1)
+        self.assertLessEqual(antes, registro.fecha_entrada)
+        self.assertLessEqual(registro.fecha_entrada, timezone.now())
+
+    def test_casas_solo_de_colonia_del_guardia_y_validacion_destino(self):
+        propia = Casa.objects.create(colonia=self.colonia, codigo="P1", numero="1")
+        ajena = Casa.objects.create(colonia=self.otra, codigo="A1", numero="1")
+        Casa.objects.create(colonia=self.colonia, codigo="IN", numero="2", activa=False)
+        session = self.client.session
+        session["colonia_actual"] = self.otra.pk
+        session.save()
+        response = self.client.get(self.url, {"colonia": self.otra.pk})
+        self.assertEqual(list(response.context["form"].fields["casa_destino"].queryset), [propia])
+        response = self.client.post(self.url, {
+            "colonia": self.otra.pk, "casa_destino": ajena.pk, "fotos": self.foto(),
+        })
+        self.assertIn("casa_destino", response.context["form"].errors)
+        self.assertFalse(RegistroVehicular.objects.exists())
+        response = self.client.post(self.url, {
+            "colonia": self.otra.pk, "casa_destino": propia.pk, "fotos": self.foto(),
+        })
+        self.assertRedirects(response, reverse("dashboard_guardia"))
+        registro = RegistroVehicular.objects.get()
+        self.assertEqual(registro.casa_destino, propia)
+        self.assertEqual(registro.colonia, self.colonia)
+
+    def test_guardia_sin_colonia_no_registra(self):
+        UsuarioColonia.objects.filter(usuario=self.guardia).update(activa=False)
+        response = self.client.post(self.url, {"colonia": self.colonia.pk, "fotos": self.foto()})
+        self.assertRedirects(response, reverse("dashboard_guardia"))
+        self.assertFalse(RegistroVehicular.objects.exists())
 
     def test_valida_todas_las_fotos_no_solo_la_ultima(self):
         mala = SimpleUploadedFile("falsa.jpg", b"no es una imagen", content_type="image/jpeg")

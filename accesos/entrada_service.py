@@ -1,6 +1,7 @@
 import logging
 
 from django.db import transaction
+from django.utils import timezone
 from .models import FotoEntrada, RegistroVehicular, Vehiculo
 
 
@@ -11,7 +12,8 @@ def guardar_entrada(form, colonia, usuario):
             registro = form.save(commit=False)
             registro.colonia = colonia
             registro.guardia_entrada = usuario
-            vehiculo = Vehiculo.objects.filter(colonia=colonia, placa=registro.placa, activo=True).select_related("casa", "responsable").first()
+            registro.fecha_entrada = timezone.now()
+            vehiculo = Vehiculo.objects.filter(colonia=colonia, placa=registro.placa, activo=True).select_related("casa", "responsable").first() if registro.placa else None
             if vehiculo:
                 registro.vehiculo = vehiculo
                 registro.casa_destino = vehiculo.casa

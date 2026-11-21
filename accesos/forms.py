@@ -67,6 +67,8 @@ class FotosEntradaInput(forms.ClearableFileInput):
 class FotosEntradaField(forms.ImageField):
     def clean(self, data, initial=None):
         files = data if isinstance(data, (list, tuple)) else ([data] if data else [])
+        if not files and self.required:
+            raise forms.ValidationError("Adjunta al menos una foto de la entrada.")
         if len(files) > MAX_FOTOS_ENTRADA:
             raise forms.ValidationError(f"Puedes adjuntar hasta {MAX_FOTOS_ENTRADA} fotos por entrada.")
         result = []
@@ -83,9 +85,9 @@ class FotosEntradaField(forms.ImageField):
 
 
 class RegistroEntradaForm(forms.ModelForm):
-    fotos = FotosEntradaField(label="Fotos de la entrada", required=False,
+    fotos = FotosEntradaField(label="Fotos de la entrada", required=True,
         widget=FotosEntradaInput(attrs={"accept": "image/jpeg,image/png,image/webp"}),
-        help_text="Opcional. Hasta 8 fotos JPG, PNG o WEBP, de máximo 8 MB cada una.")
+        help_text="Obligatorio: al menos 1 foto. Hasta 8 fotos JPG, PNG o WEBP, de máximo 8 MB cada una.")
     class Meta:
         model = RegistroVehicular
         fields = (
@@ -99,10 +101,12 @@ class RegistroEntradaForm(forms.ModelForm):
         )
         widgets = {"observaciones": forms.Textarea(attrs={"rows": 2})}
 
-    def __init__(self, *args, casas_queryset=None, **kwargs):
+    def __init__(self, *args, colonia, **kwargs):
         super().__init__(*args, **kwargs)
-        if casas_queryset is not None:
-            self.fields["casa_destino"].queryset = casas_queryset
+        self.instance.colonia = colonia
+        self.fields["casa_destino"].queryset = Casa.objects.filter(
+            colonia=colonia, activa=True,
+        ).select_related("responsable_actual", "colonia")
         self.fields["casa_destino"].required = False
         self.fields["placa"].widget.attrs.update(
             {"autocapitalize": "characters", "autocomplete": "off", "placeholder": "Ingrese la placa"}

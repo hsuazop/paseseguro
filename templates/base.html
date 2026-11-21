@@ -33,7 +33,7 @@
         <a class="nav-link" href="{% url 'mi_cuenta' %}"><i class="bi bi-house-door"></i> Mi cuenta</a>
       {% elif user.rol == 'GUARDIA' and not user.is_superuser %}
         <a class="nav-link" href="{% url 'dashboard_guardia' %}"><i class="bi bi-speedometer2"></i> Panel de guardia</a>
-        <a class="nav-link action-link" href="{% url 'registrar_entrada' %}"><i class="bi bi-car-front-fill"></i> Registrar entrada</a>
+        <a class="nav-link" href="{% url 'registrar_entrada' %}"><i class="bi bi-car-front-fill"></i> Registrar entrada</a>
         <a class="nav-link" href="{% url 'historial_accesos' %}"><i class="bi bi-clock-history"></i> Entradas y salidas</a>
         <a class="nav-link" href="{% url 'visitas_control' %}"><i class="bi bi-person-badge"></i> Visitas programadas</a>
       {% elif user.rol == 'TESORERO' and not user.is_superuser %}
