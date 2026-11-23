@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% load app_tags l10n %}
-{% block title %}Gastos mensuales · Residencia Segura{% endblock %}
+{% block title %}Gastos mensuales · Residencial Segura{% endblock %}
 {% block content %}
 <div class="page-header d-flex flex-wrap justify-content-between gap-3 mb-4"><div><h1 class="page-title">Gastos mensuales</h1><p class="page-subtitle">Registra y consulta los gastos de tu residencial.</p></div><div>{% if colonia %}<a class="btn btn-primary" href="{% url 'gasto_crear' %}?colonia={{ colonia.pk|unlocalize }}&anio={{ anio|unlocalize }}&mes={{ mes }}">Registrar gasto</a> <a class="btn btn-outline-primary" href="{% url 'resumen_contable' %}?colonia={{ colonia.pk|unlocalize }}&anio={{ anio|unlocalize }}&mes={{ mes }}">Ver resumen contable</a>{% endif %}</div></div>
 {% include 'facturacion/filtro_periodo_gastos.html' %}

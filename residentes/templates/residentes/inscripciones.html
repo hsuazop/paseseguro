@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1 class="page-title">Registros pendientes de confirmar</h1>
+<p>{{ colonia.nombre }}</p>
+{% for item in pendientes %}
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h5">{{ item.responsable.nombre_completo }}</h2>
+  <p>{{ item.responsable.telefono }} {{ item.responsable.correo }}</p>
+  {% if item.vehiculo %}<p>Vehículo declarado · {{ item.vehiculo.placa }}</p>{% endif %}
+  {% if item.adjunto %}<p>Comprobante de vigilancia · {{ item.adjunto.mes }}/{{ item.adjunto.anio|stringformat:"d" }} · L {{ item.adjunto.monto }}</p>{% endif %}
+  <form method="post" action="{% url 'confirmar_inscripcion' item.pk %}">{% csrf_token %}
+    <label for="casa-{{ item.pk }}">Casa que verificaste para este residente</label>
+    <input class="form-control mb-2" id="casa-{{ item.pk }}" name="codigo_casa" value="{{ item.descripcion_casa }}" required maxlength="255">
+    <button class="btn btn-primary" type="submit">Confirmar casa</button>
+  </form>
+</div></div>
+{% empty %}<p>No hay registros pendientes.</p>{% endfor %}
+{% endblock %}

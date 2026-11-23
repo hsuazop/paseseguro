@@ -28,8 +28,14 @@ from facturacion import views as factura_views
 from facturacion import gastos_views
 from reportes import views as reporte_views
 from residentes import views as residente_views
+from residentes import registro_publico
 
 urlpatterns = [
+    path('registro/villa-olimpica/', registro_publico.registro_villa_olimpica, name='registro_villa_olimpica'),
+    path('registro/villa-olimpica/con-comprobante/', registro_publico.registro_villa_olimpica,
+         {"con_comprobante": True}, name='registro_villa_con_comprobante'),
+    path('tesoreria/inscripciones/', registro_publico.inscripciones, name='inscripciones_publicas'),
+    path('tesoreria/inscripciones/<int:pk>/confirmar/', registro_publico.confirmar_inscripcion, name='confirmar_inscripcion'),
     path('gastos/', gastos_views.lista, name='gastos_lista'),
     path('gastos/nuevo/', gastos_views.formulario, name='gasto_crear'),
     path('gastos/<int:pk>/editar/', gastos_views.formulario, name='gasto_editar'),
@@ -44,6 +50,7 @@ urlpatterns = [
     path('dashboard/', core_views.dashboard, name='dashboard'),
     path('dashboard/financiero/', core_views.dashboard_financiero, name='dashboard_financiero'),
     path('tesoreria/', factura_views.tesoreria, name='tesoreria'),
+    path('tesoreria/residentes/registrar/', factura_views.registrar_residente, name='registrar_residente'),
     path('tesoreria/efectivo/', factura_views.pago_efectivo, name='pago_efectivo'),
     path('usuarios/', account_views.usuarios_lista, name='usuarios_lista'),
     path('usuarios/nuevo/', account_views.usuario_crear, name='usuario_crear'),

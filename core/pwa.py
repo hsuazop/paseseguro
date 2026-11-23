@@ -22,8 +22,8 @@ def app_manifest(request):
     """Public identity for the installed web app and its future Android package."""
     return JsonResponse({
         "id": reverse("inicio"),
-        "name": "Residencia Segura",
-        "short_name": "Residencia Segura",
+        "name": "Residencial Segura",
+        "short_name": "Residencial Segura",
         "description": "Tu residencial, visitas, pagos y comunidad en un solo lugar.",
         "lang": "es-HN",
         "dir": "ltr",

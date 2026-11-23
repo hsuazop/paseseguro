@@ -8,7 +8,7 @@ from core.models import TimeStampedModel
 
 class Responsable(TimeStampedModel):
     nombre_completo = models.CharField(max_length=180)
-    identidad = models.CharField(max_length=20, unique=True)
+    identidad = models.CharField(max_length=20, unique=True, blank=True, null=True)
     telefono = models.CharField(max_length=30, blank=True)
     correo = models.EmailField("correo electrónico", blank=True)
     usuario = models.OneToOneField(
@@ -31,7 +31,7 @@ class Responsable(TimeStampedModel):
         ordering = ("nombre_completo",)
 
     def save(self, *args, **kwargs):
-        self.identidad = self.identidad.strip()
+        self.identidad = (self.identidad or "").strip() or None
         super().save(*args, **kwargs)
 
     def clean(self):
@@ -40,6 +40,24 @@ class Responsable(TimeStampedModel):
 
     def __str__(self):
         return self.nombre_completo
+
+
+class RegistroPublico(TimeStampedModel):
+    colonia = models.ForeignKey("colonias.Colonia", on_delete=models.PROTECT)
+    responsable = models.OneToOneField(Responsable, on_delete=models.CASCADE)
+    descripcion_casa = models.CharField(max_length=255)
+    vehiculo = models.JSONField(default=dict, blank=True)
+    confirmado = models.BooleanField(default=False)
+
+
+class ComprobanteInscripcion(TimeStampedModel):
+    registro = models.OneToOneField(RegistroPublico, on_delete=models.CASCADE, related_name="adjunto")
+    archivo = models.FileField(upload_to="comprobantes/%Y/%m/")
+    anio = models.PositiveSmallIntegerField()
+    mes = models.PositiveSmallIntegerField()
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    metodo_pago = models.CharField(max_length=20)
+    comentario = models.TextField(blank=True)
 
 
 class CasaResponsable(TimeStampedModel):

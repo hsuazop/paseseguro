@@ -4,8 +4,8 @@ from django.contrib.admin.apps import AdminConfig
 
 
 class PaseSeguroAdminSite(AdminSite):
-    site_header = "Residencia Segura · Administración"
-    site_title = "Residencia Segura"
+    site_header = "Residencial Segura · Administración"
+    site_title = "Residencial Segura"
     index_title = "Administración del sistema"
     site_url = "/dashboard/"
     index_template = "admin/paseseguro_index.html"

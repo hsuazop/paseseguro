@@ -1,0 +1,77 @@
+{% load static %}
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  {% include 'components/app_identity.html' %}
+  <title>Registro de residentes | {{ colonia.nombre }}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css" rel="stylesheet">
+  <link href="{% static 'core/app.css' %}" rel="stylesheet">
+</head>
+<body>
+<header class="navbar navbar-dark app-navbar">
+  <div class="container">
+    <span class="navbar-brand d-inline-flex align-items-center gap-2 fw-semibold">
+      <img src="{% static 'core/brand/icon.svg' %}" width="38" height="38" class="rounded-2" alt="">
+      Residencial Segura
+    </span>
+  </div>
+</header>
+<main class="container py-4">
+<div class="row justify-content-center"><div class="col-12 col-lg-8 col-xl-6">
+  <header class="mb-4">
+    <h1 class="page-title">{% if resultado %}Te has registrado exitosamente{% elif comprobante %}Registro de residente con comprobante de pago{% else %}Registro de residentes{% endif %}</h1>
+    {% if resultado %}<p>{{ colonia.nombre }}</p>{% else %}
+    <p>Este formulario es para residentes de <strong>{{ colonia.nombre }}</strong>. Llena tus datos y describe tu casa para registrarte.{% if comprobante %} Al final, elige el mes y el año de vigilancia que pagaste y adjunta tu comprobante.{% endif %}</p>
+    {% endif %}
+  </header>
+  <div class="card"><div class="card-body p-3 p-md-4">
+  {% if resultado %}
+    {% if comprobante %}<p>Recibimos tu comprobante de vigilancia. Tesorería revisará el pago después de confirmar tu casa.</p>{% endif %}
+    {% if resultado.enviado %}
+      <p>Enviamos tu usuario y contraseña temporal a tu correo. Revisa también la carpeta de spam.</p>
+    {% elif resultado.fallo_correo %}
+      <p>Tu registro quedó guardado, pero el envío del correo falló. Contacta a Tesorería para recibir una nueva contraseña temporal.</p>
+    {% else %}
+      <p>Guarda estos datos para ingresar a la aplicación. La contraseña se muestra una sola vez.</p>
+      <dl><dt>Usuario</dt><dd>{{ resultado.usuario }}</dd><dt>Contraseña temporal</dt><dd>{{ resultado.clave }}</dd></dl>
+    {% endif %}
+    <p>La aplicación te pedirá cambiar la contraseña al primer ingreso. Tesorería confirmará tu casa para habilitar sus servicios.</p>
+    <a class="btn btn-primary" href="{% url 'login' %}">Ingresar a la aplicación</a>
+  {% else %}
+    <form method="post"{% if comprobante %} enctype="multipart/form-data"{% endif %}>{% csrf_token %}
+      {% include 'components/form_errors.html' %}
+      <div class="row g-3 mb-4">
+        {% for field in form %}
+          <div class="{% if field.name == 'codigo_casa' %}col-12{% else %}col-md-6{% endif %}">
+            {{ field.label_tag }}{{ field }}{{ field.errors }}
+            {% if field.help_text %}<div class="form-text" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}
+          </div>
+        {% endfor %}
+      </div>
+      {% include 'residentes/vehiculo_opcional.html' %}
+      {% if comprobante %}
+      <fieldset class="mb-4">
+        <legend class="h5">Comprobante de pago de vigilancia</legend>
+        {{ comprobante.non_field_errors }}
+        <div class="row g-3">
+          {% for campo in comprobante %}
+          <div class="{% if campo.name == 'archivo' or campo.name == 'comentario' %}col-12{% else %}col-md-6{% endif %}">
+            {{ campo.label_tag }}{{ campo }}{{ campo.errors }}
+            {% if campo.help_text %}<div class="form-text" id="{{ campo.auto_id }}_helptext">{{ campo.help_text }}</div>{% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% if comprobante.is_bound %}<p class="form-text">Vuelve a seleccionar el archivo antes de enviar.</p>{% endif %}
+      </fieldset>
+      {% endif %}
+      <button class="btn btn-primary" type="submit">{% if comprobante %}Registrarme y enviar comprobante{% else %}Registrarme{% endif %}</button>
+    </form>
+  {% endif %}
+  </div></div>
+</div></div>
+</main>
+</body>
+</html>

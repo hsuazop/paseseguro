@@ -1,0 +1,123 @@
+from unittest.mock import patch
+from datetime import date
+from io import BytesIO
+from tempfile import TemporaryDirectory
+
+from django.contrib.auth import authenticate
+from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from PIL import Image
+
+from accesos.models import Vehiculo
+from accounts.models import User, UsuarioColonia
+from colonias.models import Casa, Colonia
+from facturacion.models import ComprobantePago, Pago, TarifaColonia
+from .models import RegistroPublico
+from .registro_publico import VILLA_OLIMPICA
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", DEFAULT_FROM_EMAIL="avisos@example.com")
+class RegistroPublicoTests(TestCase):
+    def setUp(self):
+        self.villa = Colonia.objects.create(nombre=VILLA_OLIMPICA)
+        self.otra = Colonia.objects.create(nombre="Otra residencial")
+        self.url = reverse("registro_villa_olimpica")
+        self.datos = {"nombre_completo": "Ana López", "codigo_casa": "Bloque A, casa 8"}
+
+    def test_publico_correo_acceso_y_confirmacion(self):
+        self.assertContains(self.client.get(self.url), self.villa.nombre)
+        datos = dict(self.datos, correo="Ana@Example.com", colonia=self.otra.pk, rol="ADMINISTRADOR",
+                     agregar_vehiculo="1", **{"vehiculo-placa": "abc 123", "vehiculo-tipo": "AUTOMOVIL"})
+        respuesta = self.client.post(self.url, datos, follow=True)
+        self.assertContains(respuesta, "Te has registrado exitosamente")
+        item = RegistroPublico.objects.get()
+        self.assertEqual(item.colonia, self.villa)
+        self.assertFalse(Casa.objects.exists())
+        self.assertFalse(Vehiculo.objects.exists())
+        self.assertEqual(len(mail.outbox), 1)
+        mensaje = mail.outbox[0]
+        self.assertEqual(mensaje.to, ["ana@example.com"])
+        clave = mensaje.body.split("Contraseña temporal: ")[1].splitlines()[0]
+        usuario = authenticate(username="ana@example.com", password=clave)
+        self.assertEqual(usuario.rol, User.Rol.RESIDENTE)
+        self.assertTrue(usuario.debe_cambiar_password)
+        self.assertNotContains(respuesta, clave)
+        self.client.post(self.url, datos)
+        self.assertEqual(RegistroPublico.objects.count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        tesorero = User.objects.create_user("tesorero", rol=User.Rol.TESORERO)
+        asignacion = UsuarioColonia.objects.create(usuario=tesorero, colonia=self.otra)
+        self.client.force_login(tesorero)
+        confirmar = reverse("confirmar_inscripcion", args=[item.pk])
+        self.assertEqual(self.client.post(confirmar, self.datos).status_code, 404)
+        asignacion.colonia = self.villa
+        asignacion.save()
+        self.client.post(confirmar, self.datos)
+        casa = Casa.objects.get()
+        self.assertEqual(casa.responsable_actual.usuario, usuario)
+        self.assertEqual(Vehiculo.objects.get(casa=casa).placa, "ABC123")
+
+    def test_sin_correo_muestra_credenciales_una_vez(self):
+        respuesta = self.client.post(self.url, self.datos, follow=True)
+        resultado = respuesta.context["resultado"]
+        self.assertIsNotNone(authenticate(username=resultado["usuario"], password=resultado["clave"]))
+        self.assertNotContains(self.client.get(self.url), resultado["clave"])
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_alta_con_comprobante_y_revision_del_mes(self):
+        url = reverse("registro_villa_con_comprobante")
+        self.assertContains(self.client.get(url), 'enctype="multipart/form-data"')
+        self.assertNotContains(self.client.get(self.url), 'name="pago-archivo"')
+        datos = {**self.datos, "pago-anio": 2027, "pago-mes": 4, "pago-monto": "350.00",
+                 "pago-metodo_pago": "TRANSFERENCIA"}
+        for archivo in (None, SimpleUploadedFile("foto.png", b"invalido")):
+            respuesta = self.client.post(url, {**datos, **({"pago-archivo": archivo} if archivo else {})})
+            self.assertIn("archivo", respuesta.context["comprobante"].errors)
+            self.assertFalse(User.objects.exists())
+        imagen = BytesIO()
+        Image.new("RGB", (10, 10)).save(imagen, format="PNG")
+        with TemporaryDirectory() as carpeta, self.settings(MEDIA_ROOT=carpeta):
+            datos["pago-archivo"] = SimpleUploadedFile("copia.png", imagen.getvalue(), "image/png")
+            respuesta = self.client.post(url, datos, follow=True)
+            self.assertContains(respuesta, "Recibimos tu comprobante")
+            registro = RegistroPublico.objects.get()
+            self.assertEqual(registro.adjunto.archivo.read(), imagen.getvalue())
+            registro.adjunto.archivo.close()
+            self.assertFalse(ComprobantePago.objects.exists())
+            tesorero = User.objects.create_user("tesorero", rol=User.Rol.TESORERO)
+            UsuarioColonia.objects.create(usuario=tesorero, colonia=self.villa)
+            self.client.force_login(tesorero)
+            self.client.post(reverse("confirmar_inscripcion", args=[registro.pk]), self.datos)
+            item = ComprobantePago.objects.get()
+            self.assertEqual(item.estado, ComprobantePago.Estado.PENDIENTE)
+            self.assertEqual(item.enviado_por, registro.responsable.usuario)
+            self.assertEqual(item.archivo.name, registro.adjunto.archivo.name)
+            self.assertEqual(item.periodos_solicitados, [{"anio": 2027, "mes": 4}])
+            self.assertFalse(Pago.objects.exists())
+            TarifaColonia.objects.create(colonia=self.villa, monto=350, fecha_inicio=date(2027, 1, 1))
+            self.client.post(reverse("comprobante_revisar", args=[item.pk]), {"estado": "APROBADO"})
+            item.refresh_from_db()
+            self.assertIsNotNone(item.pago_id)
+            self.assertEqual((item.cuotas.get().anio, item.cuotas.get().mes), (2027, 4))
+
+    def test_pagina_publica_con_y_sin_sesion(self):
+        tesorero = User.objects.create_user("tesorero", rol=User.Rol.TESORERO)
+        for usuario in (None, tesorero):
+            with self.subTest(usuario=usuario):
+                if usuario:
+                    self.client.force_login(usuario)
+                pagina = self.client.get(self.url)
+                self.assertContains(pagina, "Residencial Segura")
+                self.assertContains(pagina, 'src="/static/core/brand/icon.svg"')
+                self.assertNotContains(pagina, 'id="sidebar"')
+                self.assertNotContains(pagina, 'aria-label="Accesos rápidos"')
+                self.assertContains(pagina, "Llena tus datos y describe tu casa")
+                self.assertContains(pagina, "Es importante que escribas un correo que revises")
+
+    @patch("residentes.registro_publico.send_mail", side_effect=OSError)
+    def test_error_smtp_preserva_registro(self, enviar):
+        respuesta = self.client.post(self.url, dict(self.datos, correo="ana@example.com"), follow=True)
+        self.assertContains(respuesta, "el envío del correo falló")
+        self.assertTrue(RegistroPublico.objects.exists())

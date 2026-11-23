@@ -1,4 +1,5 @@
 from io import BytesIO
+from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
@@ -42,9 +43,9 @@ def generar_recibo_pdf(pago):
     cabecera = Table([
         [Paragraph("<font color='#66788A' size='8'>RECIBO</font><br/><b>%s</b>" % pago.numero_recibo, styles["Normal"]),
          Paragraph("<font color='#66788A' size='8'>FECHA</font><br/><b>%s</b>" % pago.fecha_pago.strftime("%d/%m/%Y"), styles["Right"])],
-        [Paragraph("<font color='#66788A' size='8'>CASA</font><br/><b>#%s</b>" % pago.casa.codigo, styles["Normal"]),
+        [Paragraph("<font color='#66788A' size='8'>CASA</font><br/><b>%s</b>" % escape(pago.casa.codigo), styles["Normal"]),
          Paragraph("<font color='#66788A' size='8'>RESPONSABLE</font><br/><b>%s</b>" % pago.responsable.nombre_completo, styles["Right"])],
-    ], colWidths=[83 * mm, 83 * mm], rowHeights=[16 * mm, 16 * mm])
+    ], colWidths=[83 * mm, 83 * mm], minRowHeights=[16 * mm, 16 * mm])
     cabecera.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, 0), .5, colors.HexColor("#DFE6EE"))]))
     story.extend([cabecera, Spacer(1, 5 * mm)])
     filas = [["Concepto", "Monto"]]
@@ -69,6 +70,6 @@ def generar_recibo_pdf(pago):
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"), ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 9), ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
-    story.extend([detalles, Spacer(1, 12 * mm), Paragraph(f"Documento generado por Residencia Segura<br/>{pago.token_publico}", styles["MutedCenter"])])
+    story.extend([detalles, Spacer(1, 12 * mm), Paragraph(f"Documento generado por Residencial Segura<br/>{pago.token_publico}", styles["MutedCenter"])])
     doc.build(story)
     return output.getvalue()

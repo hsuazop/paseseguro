@@ -1,7 +1,20 @@
 from django.contrib import admin
-from core.admin_utils import BaseAdmin
+from core.admin_utils import BaseAdmin, ReadOnlyAdmin
 
-from .models import CasaResponsable, Responsable
+from .models import CasaResponsable, ComprobanteInscripcion, RegistroPublico, Responsable
+
+
+@admin.register(RegistroPublico)
+class RegistroPublicoAdmin(ReadOnlyAdmin):
+    list_display = ("responsable", "colonia", "descripcion_casa", "confirmado")
+    search_fields = ("responsable__nombre_completo", "descripcion_casa")
+    list_filter = ("confirmado", "colonia")
+
+
+@admin.register(ComprobanteInscripcion)
+class ComprobanteInscripcionAdmin(ReadOnlyAdmin):
+    list_display = ("archivo", "anio", "mes", "monto")
+    search_fields = ("registro__responsable__nombre_completo", "registro__descripcion_casa")
 
 
 @admin.register(Responsable)

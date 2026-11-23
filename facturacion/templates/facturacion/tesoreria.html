@@ -1,12 +1,13 @@
 {% extends 'base.html' %}{% load app_tags l10n static %}
-{% block title %}Vigilancia del mes | Residencia Segura{% endblock %}
+{% block title %}Vigilancia del mes | Residencial Segura{% endblock %}
 {% block content %}
 {% if colonia_fija %}<div class="mb-4"><h1 class="page-title">Bienvenido, {{ user.nombre_completo }}</h1><p class="page-subtitle">Tesorería de <strong>{{ colonia.nombre|default:'residencial sin asignar' }}</strong></p></div>{% endif %}
 <div class="page-header d-flex flex-column flex-lg-row justify-content-between align-items-lg-end gap-3 mb-4">
   <div><h2 class="page-title">Vigilancia del mes</h2><p class="page-subtitle">Revise quién pagó, registre efectivo y valide los comprobantes enviados.</p></div>
   <div class="page-actions d-flex flex-wrap gap-2">
     {% if colonia %}<a class="btn btn-primary" href="{% url 'pago_efectivo' %}?mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar efectivo</a>
-    <a class="btn btn-outline-primary" href="{% url 'pago_efectivo' %}?tipo=nuevo&mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Nuevo vecino y pago</a>{% endif %}
+    <a class="btn btn-outline-primary" href="{% url 'registrar_residente' %}">Registrar Residente</a>
+    {% if colonia.nombre == 'Residencial Villa Olímpica' %}<a class="btn btn-outline-secondary" href="{% url 'inscripciones_publicas' %}">Confirmar registros públicos</a>{% endif %}{% endif %}
     <a class="btn btn-outline-primary" href="{% url 'comprobantes_gestion' %}?estado=PENDIENTE">Ver comprobantes pendientes</a>
   </div>
 </div>
@@ -45,7 +46,7 @@
     {% if fila.estado == 'POR_VALIDAR' %}<a class="btn btn-sm btn-primary" href="{% url 'comprobante_revisar' fila.comprobante.pk %}">Validar</a>{% elif fila.comprobante %}<a class="btn btn-sm btn-outline-primary" href="{% url 'comprobante_revisar' fila.comprobante.pk %}">Ver comprobante</a>{% endif %}
     {% if fila.comprobante.pago_id %}<a class="btn btn-sm btn-outline-success" href="{% url 'recibo_detalle' fila.comprobante.pago_id %}">Ver recibo</a>{% endif %}
   </td>
-</tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">No hay personas con residencia registrada. Use «Nuevo vecino y pago» para registrar el primero.</td></tr>{% endfor %}
+</tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">No hay personas con residencia registrada. Use «Registrar Residente» para registrar el primero.</td></tr>{% endfor %}
 {% if filas %}<tr class="d-none" data-search-empty><td colspan="5" class="text-center text-muted py-4">No se encontraron residentes para esta búsqueda.</td></tr>{% endif %}
 </tbody></table></div></div>
 <section class="card mt-4">

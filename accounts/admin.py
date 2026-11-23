@@ -13,8 +13,8 @@ class UsuarioColoniaInline(admin.TabularInline):
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin, BaseAdmin):
-    fieldsets = UserAdmin.fieldsets + (("Residencia Segura", {"fields": ("identidad", "rol", "debe_cambiar_password")}),)
-    add_fieldsets = UserAdmin.add_fieldsets + (("Residencia Segura", {"fields": ("identidad", "rol")}),)
+    fieldsets = UserAdmin.fieldsets + (("Residencial Segura", {"fields": ("identidad", "rol", "debe_cambiar_password")}),)
+    add_fieldsets = UserAdmin.add_fieldsets + (("Residencial Segura", {"fields": ("identidad", "rol")}),)
     list_display = ("username", "nombre_completo", "email", "identidad", "rol", "is_staff", "is_superuser", "is_active", "last_login")
     list_filter = UserAdmin.list_filter + ("rol",)
     search_fields = ("username", "first_name", "last_name", "email", "identidad")

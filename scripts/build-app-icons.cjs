@@ -13,5 +13,5 @@ const sharp = require('sharp');
   for (const [name, size] of variants) {
     await sharp(source).resize(size, size).png().toFile(path.join(directory, name));
   }
-  console.log(`Generated ${variants.length} Residencia Segura icons.`);
+  console.log(`Generated ${variants.length} Residencial Segura icons.`);
 })().catch(error => { console.error(error); process.exitCode = 1; });

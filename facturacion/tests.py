@@ -6,6 +6,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
 
+from accesos.models import Vehiculo
 from accounts.models import User, UsuarioColonia
 from colonias.models import Casa, Colonia
 from residentes.models import Responsable
@@ -328,7 +329,7 @@ class FinancialTestCase(TestCase):
         self.assertContains(response, "Bienvenido, tesorero")
         self.assertNotContains(response, 'name="colonia"')
         self.assertContains(response, 'value="2026"')
-        self.assertContains(response, "Nuevo vecino y pago")
+        self.assertContains(response, reverse("registrar_residente"))
 
     def test_formulario_efectivo_sin_selector_colonia(self):
         self.client.force_login(self.tesorero)
@@ -364,47 +365,61 @@ class FinancialTestCase(TestCase):
         self.assertEqual(enero.saldo, Decimal("500"))
         self.assertEqual(febrero.saldo, Decimal("300"))
 
-    def test_alta_vecino_y_pago_asigna_colonia_y_crea_acceso(self):
+    def datos_residente(self, **cambios):
+        datos = {"nombre_completo": "Ana Lopez", "identidad": "0801199912345",
+                 "telefono": "99999999", "correo": "ana@example.com", "codigo_casa": "A-25"}
+        return {**datos, **cambios}
+
+    def test_alta_independiente_y_cobro_posterior(self):
         self.client.force_login(self.tesorero)
-        datos = self.efectivo_datos(tipo="nuevo", casa="", nombre_completo="Ana Lopez",
-                                   identidad="0801199912345", telefono="99999999", codigo_casa="A-25")
-        response = self.client.post(reverse("pago_efectivo"), datos)
-        pago = Pago.objects.get()
-        self.assertEqual(response.status_code, 302)
+        url = reverse("registrar_residente")
+        descripcion = "Villa Olímpica, bloque B, casa 12, frente a la cancha de fútbol y junto al portón azul."
+        datos = self.datos_residente(codigo_casa=descripcion.replace(", frente", ",\r\nfrente"))
+        form = self.client.get(url).context["form"]
+        self.assertNotIn("monto_total", form.fields)
+        self.assertNotIn("fecha_pago", form.fields)
+        response = self.client.post(url, datos)
+        self.assertFalse(Pago.objects.exists())
         vecino = Responsable.objects.get(identidad=datos["identidad"])
-        self.assertEqual(pago.responsable, vecino)
-        self.assertEqual(pago.colonia, self.colonia)
-        self.assertEqual(pago.casa.responsable_actual, vecino)
-        self.assertTrue(pago.casa.historial_responsables.filter(responsable=vecino, activo=True).exists())
+        casa = Casa.objects.get(colonia=self.colonia, codigo=descripcion)
+        self.assertEqual(casa.numero, descripcion)
+        self.assertRedirects(response, f"{url}?alta={casa.pk}", fetch_redirect_response=False)
+        self.assertEqual(casa.responsable_actual, vecino)
+        self.assertTrue(casa.historial_responsables.filter(responsable=vecino, activo=True).exists())
         self.assertTrue(vecino.usuario.debe_cambiar_password)
         self.assertEqual(vecino.correo, datos["correo"])
         self.assertEqual(vecino.usuario.email, datos["correo"])
         alta = self.client.get(response.url)
-        self.assertContains(alta, "Contraseña temporal")
         self.assertTrue(vecino.usuario.check_password(alta.context["alta"]["password"]))
         self.assertNotContains(self.client.get(response.url), "Contraseña temporal")
+        self.assertContains(alta, f'{reverse("pago_efectivo")}?casa={casa.pk}')
+        self.client.post(reverse("pago_efectivo"), self.efectivo_datos(casa=casa.pk))
+        self.assertEqual(Pago.objects.get().responsable, vecino)
 
-    def test_alta_fallida_revierte_vecino_casa_y_usuario(self):
+    def test_efectivo_no_admite_alta_desde_formulario_anterior(self):
         self.client.force_login(self.tesorero)
-        response = self.client.post(reverse("pago_efectivo"), self.efectivo_datos(
-            tipo="nuevo", nombre_completo="Ana Lopez", identidad="0801199912345", codigo_casa="A-25", monto_total="501",
-        ))
-        self.assertEqual(response.status_code, 200)
-        self.assertFalse(Responsable.objects.filter(identidad="0801199912345").exists())
-        self.assertFalse(User.objects.filter(username="0801199912345").exists())
-        self.assertFalse(Casa.objects.filter(codigo="A-25").exists())
+        url = reverse("pago_efectivo")
+        self.assertRedirects(self.client.get(url, {"tipo": "nuevo"}), reverse("registrar_residente"))
+        datos = {**self.efectivo_datos(tipo="nuevo"), **self.datos_residente()}
+        response = self.client.post(url, datos)
+        self.assertContains(response, "Use Registrar Residente")
+        self.assertFalse(Responsable.objects.filter(identidad=datos["identidad"]).exists())
+        self.assertFalse(User.objects.filter(username=datos["identidad"]).exists())
+        self.assertFalse(Casa.objects.filter(codigo=datos["codigo_casa"]).exists())
         self.assertFalse(Pago.objects.exists())
 
     def test_alta_usa_casa_disponible_sin_reemplazar_responsables(self):
         vacia = Casa.objects.create(colonia=self.colonia, codigo="002", numero="2")
         self.client.force_login(self.tesorero)
-        datos = self.efectivo_datos(tipo="nuevo", nombre_completo="Ana Lopez", identidad="0801199912345", codigo_casa="001")
-        response = self.client.post(reverse("pago_efectivo"), datos)
-        self.assertEqual(response.status_code, 200)
+        url = reverse("registrar_residente")
+        response = self.client.post(url, self.datos_residente(codigo_casa="001"))
+        self.assertIn("codigo_casa", response.context["form"].errors)
+        self.client.post(url, self.datos_residente(codigo_casa="002", colonia=self.otra_colonia.pk))
+        vacia.refresh_from_db()
+        self.assertEqual(vacia.responsable_actual.identidad, self.datos_residente()["identidad"])
         self.assertFalse(Pago.objects.exists())
-        datos["codigo_casa"] = "002"
-        self.client.post(reverse("pago_efectivo"), datos)
-        self.assertEqual(Pago.objects.get().casa, vacia)
+        self.client.force_login(self.resident_user)
+        self.assertEqual(self.client.post(url, self.datos_residente()).status_code, 403)
 
     def test_efectivo_rechaza_vecino_ajeno_y_residente_sin_permiso(self):
         self.client.force_login(self.tesorero)
@@ -423,17 +438,57 @@ class FinancialTestCase(TestCase):
         self.assertFalse(Pago.objects.exists())
         self.assertFalse(CuotaMensual.objects.exists())
 
-    def test_efectivo_exige_correo_valido_sin_crear_registros(self):
+    def test_alta_solo_requiere_nombre_y_descripcion(self):
         self.client.force_login(self.tesorero)
-        for correo in ("", "correo-invalido"):
-            with self.subTest(correo=correo):
-                response = self.client.post(reverse("pago_efectivo"), self.efectivo_datos(
-                    tipo="nuevo", nombre_completo="Ana Lopez", identidad="0801199912345",
-                    codigo_casa="A-25", correo=correo,
-                ))
-                self.assertIn("correo", response.context["form"].errors)
-                self.assertFalse(Responsable.objects.filter(identidad="0801199912345").exists())
-                self.assertFalse(Pago.objects.exists())
+        url = reverse("registrar_residente")
+        self.assertEqual(set(self.client.post(url, {}).context["form"].errors), {"nombre_completo", "codigo_casa"})
+        usuarios = set()
+        for casa in ("A-25", "A-26"):
+            alta = self.client.post(url, {"nombre_completo": "Ana Lopez", "codigo_casa": casa}, follow=True)
+            vecino = Casa.objects.get(colonia=self.colonia, codigo=casa).responsable_actual
+            self.assertIsNone(vecino.identidad)
+            self.assertIsNone(vecino.usuario.identidad)
+            self.assertEqual((vecino.telefono, vecino.correo), ("", ""))
+            self.assertContains(alta, vecino.usuario.username)
+            self.assertTrue(vecino.usuario.check_password(alta.context["alta"]["password"]))
+            usuarios.add(vecino.usuario.username)
+        self.assertEqual(len(usuarios), 2)
+
+    def test_alta_rechaza_correo_invalido_si_se_indica(self):
+        self.client.force_login(self.tesorero)
+        response = self.client.post(reverse("registrar_residente"), self.datos_residente(correo="correo-invalido"))
+        self.assertIn("correo", response.context["form"].errors)
+        self.assertFalse(Responsable.objects.filter(identidad="0801199912345").exists())
+
+    def test_alta_con_vehiculo_y_placa_duplicada(self):
+        self.client.force_login(self.tesorero)
+        url = reverse("registrar_residente")
+        datos = {
+            "nombre_completo": "Ana Lopez", "codigo_casa": "A-25",
+            "agregar_vehiculo": "1", "vehiculo-placa": "haa 1234",
+            "vehiculo-tipo": Vehiculo.Tipo.PICKUP, "vehiculo-color": "Azul",
+        }
+        alta = self.client.post(url, datos, follow=True)
+        self.assertContains(alta, "HAA1234")
+        vehiculo = Vehiculo.objects.get(placa="HAA1234")
+        self.assertEqual(vehiculo.casa.codigo, "A-25")
+        self.assertEqual(vehiculo.responsable, vehiculo.casa.responsable_actual)
+        self.assertEqual(vehiculo.colonia, self.colonia)
+        self.assertEqual(vehiculo.color, "Azul")
+        cuentas = User.objects.count()
+        datos.update(nombre_completo="Luis Perez", codigo_casa="A-26")
+        repetido = self.client.post(url, datos)
+        self.assertTrue(repetido.context["form"].non_field_errors())
+        self.assertFalse(Casa.objects.filter(codigo="A-26").exists())
+        self.assertFalse(Responsable.objects.filter(nombre_completo="Luis Perez").exists())
+        self.assertEqual(User.objects.count(), cuentas)
+        datos["vehiculo-placa"] = ""
+        incompleto = self.client.post(url, datos)
+        self.assertIn("placa", incompleto.context["form_vehiculo"].errors)
+        self.assertTrue(incompleto.context["agregar_vehiculo"])
+        datos.pop("agregar_vehiculo")
+        self.assertEqual(self.client.post(url, datos).status_code, 302)
+        self.assertEqual(Vehiculo.objects.count(), 1)
 
     def test_efectivo_de_vecino_existente_no_pide_ni_modifica_correo(self):
         self.responsable.correo = "juan@example.com"
@@ -450,8 +505,8 @@ class FinancialTestCase(TestCase):
         self.assertEqual(self.responsable.correo, "juan@example.com")
         self.assertEqual(self.resident_user.email, "juan@example.com")
         response = self.client.get(reverse("pago_efectivo"), {"casa": self.casa.pk})
-        self.assertFalse(response.context["form"].fields["correo"].required)
-        self.assertContains(response, 'id="vecino-nuevo" class="mb-4" hidden')
+        self.assertNotIn("correo", response.context["form"].fields)
+        self.assertNotContains(response, 'name="tipo"')
 
     def test_pago_existente_ignora_correo_enviado_aunque_sea_invalido(self):
         self.responsable.correo = "juan@example.com"

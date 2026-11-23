@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load l10n %}
+{% block title %}Registrar Residente | Residencial Segura{% endblock %}
+{% block content %}
+<div class="mb-4"><h1 class="page-title">{% if alta %}Residente registrado{% else %}Registrar Residente{% endif %}</h1>
+<p class="page-subtitle">{{ colonia.nombre }}</p></div>
+<div class="card"><div class="card-body p-4">
+{% if alta %}
+  <h2 class="h5">{{ alta.nombre }}</h2>
+  {% if alta.placa %}<p>Vehículo registrado · Placa <strong>{{ alta.placa }}</strong></p>{% endif %}
+  <div class="alert alert-info"><p>Entregue estos datos al residente. La contraseña se muestra una sola vez y deberá cambiarla al ingresar.</p>
+    <div>Usuario: <strong>{% firstof alta.usuario alta.identidad %}</strong></div>
+    <div>Contraseña temporal: <strong>{{ alta.password }}</strong></div>
+  </div>
+  <a class="btn btn-primary" href="{% url 'pago_efectivo' %}?casa={{ alta.casa_id|unlocalize }}">Registrar efectivo</a>
+  <a class="btn btn-outline-primary" href="{% url 'registrar_residente' %}">Registrar otro residente</a>
+{% else %}
+  <form method="post">{% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="row g-3 mb-4">
+      {% for field in form %}
+      <div class="{% if field.name == 'codigo_casa' %}col-12{% else %}col-md-6{% endif %}">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<div class="form-text" id="{{ field.auto_id }}_helptext">{{ field.help_text }}</div>{% endif %}</div>
+      {% endfor %}
+    </div>
+    {% include 'residentes/vehiculo_opcional.html' %}
+    <button class="btn btn-primary" type="submit">Registrar Residente</button>
+    <a class="btn btn-outline-secondary" href="{% url 'tesoreria' %}">Cancelar</a>
+  </form>
+{% endif %}
+</div></div>
+{% endblock %}

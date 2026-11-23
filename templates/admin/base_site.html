@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% load static %}
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" href="{% static 'core/admin.css' %}">{% endblock %}
-{% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}"><img src="{% static 'core/brand/icon-192.png' %}" width="36" height="36" alt=""> Residencia Segura <span class="admin-brand-detail">Administración</span></a></div>{% endblock %}
+{% block branding %}<div id="site-name"><a href="{% url 'admin:index' %}"><img src="{% static 'core/brand/icon-192.png' %}" width="36" height="36" alt=""> Residencial Segura <span class="admin-brand-detail">Administración</span></a></div>{% endblock %}
 {% block nav-global %}{% endblock %}
 {% block extrahead %}{{ block.super }}{% include 'components/select_search_styles.html' %}{% endblock %}
 {% block footer %}{{ block.super }}{% include 'components/select_search_scripts.html' %}{% endblock %}

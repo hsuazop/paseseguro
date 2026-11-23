@@ -20,8 +20,8 @@ class Colonia(TimeStampedModel):
 
 class Casa(TimeStampedModel):
     colonia = models.ForeignKey(Colonia, on_delete=models.PROTECT, related_name="casas")
-    codigo = models.CharField(max_length=40)
-    numero = models.CharField(max_length=40)
+    codigo = models.CharField(max_length=255)
+    numero = models.CharField(max_length=255)
     bloque = models.CharField(max_length=40, blank=True)
     calle = models.CharField(max_length=100, blank=True)
     referencia = models.CharField(max_length=255, blank=True)

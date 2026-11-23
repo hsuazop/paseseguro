@@ -14,13 +14,13 @@ Estado: compilación de lanzamiento preparada, todavía no enviada a Play Consol
 
 ## Texto de ficha propuesto
 
-**Nombre:** Residencia Segura
+**Nombre:** Residencial Segura
 
 **Descripción corta:** Gestiona cuotas, visitas y comunicaciones de tu residencial.
 
 **Descripción completa:**
 
-Residencia Segura organiza las gestiones cotidianas de comunidades residenciales.
+Residencial Segura organiza las gestiones cotidianas de comunidades residenciales.
 La administración habilita las cuentas y asigna el acceso según la función
 de cada persona y la residencial correspondiente.
 

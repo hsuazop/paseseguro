@@ -1,0 +1,24 @@
+    <div class="mb-3">
+      <input class="btn-check" type="checkbox" name="agregar_vehiculo" value="1" id="agregar-vehiculo"
+             aria-controls="datos-vehiculo" {% if agregar_vehiculo %}checked{% endif %}>
+      <label class="btn btn-outline-primary" for="agregar-vehiculo"><i class="bi bi-car-front" aria-hidden="true"></i> Agregar vehículo (opcional)</label>
+    </div>
+    <fieldset class="mb-4" id="datos-vehiculo" {% if not agregar_vehiculo %}hidden disabled{% endif %}>
+      <legend class="h5">Datos del vehículo</legend>
+      {{ form_vehiculo.non_field_errors }}
+      <div class="row g-3">
+        {% for field in form_vehiculo %}
+        <div class="col-md-6">{{ field.label_tag }}{{ field }}{{ field.errors }}</div>
+        {% endfor %}
+      </div>
+    </fieldset>
+<script>
+  const agregarVehiculo = document.getElementById('agregar-vehiculo');
+  const datosVehiculo = document.getElementById('datos-vehiculo');
+  function mostrarDatosVehiculo() {
+    datosVehiculo.hidden = !agregarVehiculo.checked;
+    datosVehiculo.disabled = !agregarVehiculo.checked;
+  }
+  agregarVehiculo.addEventListener('change', mostrarDatosVehiculo);
+  window.addEventListener('pageshow', mostrarDatosVehiculo);
+</script>

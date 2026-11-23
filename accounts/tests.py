@@ -28,7 +28,7 @@ class GestionUsuariosTests(TestCase):
         self.admin.save(update_fields=("debe_cambiar_password",))
         response = self.client.get(reverse("app_manifest"))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["name"], "Residencia Segura")
+        self.assertEqual(response.json()["name"], "Residencial Segura")
         self.assertEqual(self.client.get(reverse("android_assetlinks")).status_code, 200)
         self.assertRedirects(self.client.get(reverse("inicio")), reverse("cambiar_password_obligatorio"), fetch_redirect_response=False)
 

@@ -1,49 +1,18 @@
 {% extends 'base.html' %}
-{% block title %}Registrar efectivo | Residencia Segura{% endblock %}
+{% block title %}Registrar efectivo | Residencial Segura{% endblock %}
 {% block content %}
 <div class="mb-4"><h1 class="page-title">Registrar pago en efectivo</h1>
 <p class="page-subtitle">{{ colonia.nombre }} · Reciba el efectivo e indique el mes y año que está pagando el vecino.</p></div>
 <div class="card"><div class="card-body p-4">
 <form method="post">{% csrf_token %}
   {{ form.non_field_errors }}
-  <div class="mb-4">{{ form.tipo.label_tag }}{{ form.tipo }}{{ form.tipo.errors }}</div>
-  <div id="vecino-existente" class="mb-4" {% if form.tipo.value == 'nuevo' %}hidden{% endif %}>{{ form.casa.label_tag }}{{ form.casa }}{{ form.casa.errors }}<div class="form-text">Se utilizará el correo guardado en el registro del vecino.</div></div>
-  <div id="vecino-nuevo" class="mb-4" {% if form.tipo.value != 'nuevo' %}hidden{% endif %}>
-    <h2 class="h5">Datos del nuevo vecino</h2>
-    <p class="text-muted">Se creará su usuario residente y se le asignará una casa de {{ colonia.nombre }}. Al guardar recibirá una contraseña temporal para entregársela.</p>
-    <div class="row g-3">
-    {% for field in form %}{% if field.name == 'nombre_completo' or field.name == 'identidad' or field.name == 'telefono' or field.name == 'codigo_casa' or field.name == 'correo' %}
-      <div class="col-md-6">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>
-    {% endif %}{% endfor %}
-    </div>
-  </div>
-  <h2 class="h5">Período y pago</h2>
   <div class="row g-3 mb-4">
-  {% for field in form %}{% if field.name == 'mes' or field.name == 'anio' or field.name == 'fecha_pago' or field.name == 'monto_total' or field.name == 'observaciones' %}
+    {% for field in form %}
     <div class="col-md-6">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>
-  {% endif %}{% endfor %}
+    {% endfor %}
   </div>
   <p class="text-muted">La cuota se calculará con la tarifa vigente del período. El efectivo se aplica directamente y genera un recibo.</p>
   <button class="btn btn-primary" type="submit">Registrar efectivo y generar recibo</button>
   <a class="btn btn-outline-secondary" href="{% url 'tesoreria' %}">Volver</a>
 </form></div></div>
-{% endblock %}
-{% block scripts %}
-<script>
-const tipo = document.getElementById('id_tipo');
-function mostrarVecino() {
-  const nuevo = tipo.value === 'nuevo';
-  document.getElementById('vecino-existente').hidden = nuevo;
-  document.getElementById('vecino-nuevo').hidden = !nuevo;
-  document.getElementById('id_casa').disabled = nuevo;
-  document.getElementById('id_casa').required = !nuevo;
-  for (const nombre of ['nombre_completo', 'identidad', 'telefono', 'codigo_casa', 'correo']) {
-    const campo = document.getElementById('id_' + nombre);
-    campo.disabled = !nuevo;
-    campo.required = nuevo && nombre !== 'telefono';
-  }
-}
-tipo.addEventListener('change', mostrarVecino);
-mostrarVecino();
-</script>
 {% endblock %}

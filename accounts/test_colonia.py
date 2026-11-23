@@ -55,6 +55,18 @@ class ColoniaImplicitaTests(TestCase):
             "reservas_gestion", "area_crear",
         ))
 
+    def test_listado_pagos_oculto_para_tesoreria_de_villa_olimpica(self):
+        self.colonia.nombre = "Residencial Villa Olímpica"
+        self.colonia.save(update_fields=["nombre"])
+        self.client.force_login(self.tesorero)
+        lista = reverse("pagos_lista")
+        self.assertRedirects(self.client.get(lista, {"colonia": self.otra.pk}), reverse("tesoreria"))
+        panel = self.client.get(reverse("tesoreria"))
+        self.assertNotContains(panel, f'href="{lista}"')
+        self.assertContains(panel, reverse("pago_efectivo"))
+        self.client.force_login(self.admin)
+        self.assertEqual(self.client.get(lista).status_code, 200)
+
     def test_todas_las_pantallas_del_guardia_sin_selector(self):
         self.comprobar_pantallas(self.guardia, (
             "dashboard_guardia", "registrar_entrada", "historial_accesos", "visitas_control",

@@ -21,6 +21,9 @@ def revisar_comprobante(pk, datos, usuario):
     if not item.periodos_solicitados:
         item.periodos_solicitados = anteriores
     anio, mes = datos.get('anio'), datos.get('mes')
+    if not anio and not mes and not anteriores and len(item.periodos_solicitados) == 1 and datos['estado'] == ComprobantePago.Estado.APROBADO:
+        periodo = item.periodos_solicitados[0]
+        anio, mes = periodo['anio'], periodo['mes']
     if anio and mes:
         if item.casa.responsable_actual_id != item.responsable_id:
             raise ValidationError('El responsable de la casa cambió. Revisa la asignación antes de modificar el período.')
@@ -81,9 +84,9 @@ def enviar_estado_comprobante(pk, usuario):
         f'Estado de tu comprobante #{item.pk}: {estado}.\n'
         f'Residencial: {item.colonia.nombre}\nCasa: {item.casa.codigo}\n'
         f'Monto: L {item.monto:.2f}\nPeríodo: {periodos}\n'
-        f'Comentario de tesorería: {item.comentario_revision or "Sin comentario"}\n\nResidencia Segura')
+        f'Comentario de tesorería: {item.comentario_revision or "Sin comentario"}\n\nResidencial Segura')
     try:
-        sent = send_mail(f'Residencia Segura · Comprobante #{item.pk}: {estado}', body,
+        sent = send_mail(f'Residencial Segura · Comprobante #{item.pk}: {estado}', body,
                          settings.DEFAULT_FROM_EMAIL, [destinatario], fail_silently=False)
         if sent != 1: raise RuntimeError('Mail not accepted')
     except Exception:

@@ -11,10 +11,14 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from django.views.decorators.cache import never_cache
 from django.http import HttpResponse
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from accesos.forms import VehiculoForm
 from accounts.models import User
+from accounts.permissions import ocultar_listado_pagos
 from accounts.permissions import ROLES_GESTION, ROLES_FINANCIEROS, colonia_actual, filtro_colonia, colonias_permitidas, roles_requeridos
+from residentes.forms import RegistrarResidenteForm
 from colonias.models import Casa
 from core.models import registrar_auditoria
 from core.pagination import paginar
@@ -155,29 +159,69 @@ def pago_efectivo(request):
     if not colonia:
         messages.warning(request, "No tiene una residencial activa asignada.")
         return redirect("tesoreria")
+    if request.method == "GET" and request.GET.get("tipo") == "nuevo":
+        return redirect("registrar_residente")
     hoy = timezone.localdate()
     form = PagoEfectivoForm(
         request.POST if request.method == "POST" else None, colonia=colonia,
-        initial={"tipo": request.GET.get("tipo", "existente"), "casa": request.GET.get("casa"),
+        initial={"casa": request.GET.get("casa"),
                  "mes": request.GET.get("mes", hoy.month), "anio": request.GET.get("anio", hoy.year),
                  "fecha_pago": hoy},
     )
-    if request.method == "POST" and form.is_valid():
+    if request.method == "POST" and request.POST.get("tipo") == "nuevo":
+        form.add_error(None, "Use Registrar Residente para dar de alta al vecino.")
+    elif request.method == "POST" and form.is_valid():
         try:
-            pago, temporal = registrar_efectivo(colonia=colonia, usuario=request.user, datos=form.cleaned_data)
+            pago = registrar_efectivo(colonia=colonia, usuario=request.user, datos=form.cleaned_data)
         except ValidationError as exc:
             for error in exc.messages:
                 form.add_error(None, error)
         except IntegrityError:
-            form.add_error(None, "El vecino o su pago ya fue registrado. Revise los datos antes de intentar de nuevo.")
+            form.add_error(None, "El pago ya fue registrado. Revise los datos antes de intentar de nuevo.")
         else:
-            if temporal:
-                request.session[f"alta_pago_{pago.pk}"] = {
-                    "identidad": pago.responsable.identidad, "password": temporal,
-                }
             messages.success(request, f"Efectivo registrado. Recibo {pago.numero_recibo}.")
             return redirect("recibo_detalle", pk=pago.pk)
     return render(request, "facturacion/pago_efectivo.html", {"form": form, "colonia": colonia})
+
+
+@roles_requeridos(*ROLES_FINANCIEROS)
+@never_cache
+def registrar_residente(request):
+    from residentes.services import registrar_residente as crear_residente
+
+    _, colonia = _colonia_financiera_actual(request)
+    if not colonia:
+        messages.warning(request, "No tiene una residencial activa asignada.")
+        return redirect("tesoreria")
+    datos = request.POST if request.method == "POST" else None
+    form = RegistrarResidenteForm(datos, colonia=colonia)
+    agregar_vehiculo = request.method == "POST" and request.POST.get("agregar_vehiculo") == "1"
+    form_vehiculo = VehiculoForm(datos if agregar_vehiculo else None, prefix="vehiculo")
+    clave_sesion = f"alta_residente_{colonia.pk}_"
+    if form.is_valid() and (not agregar_vehiculo or form_vehiculo.is_valid()):
+        vehiculo = form_vehiculo.save(commit=False) if agregar_vehiculo else None
+        try:
+            casa, temporal = crear_residente(
+                colonia=colonia, usuario=request.user, datos=form.cleaned_data, vehiculo=vehiculo,
+            )
+        except ValidationError as exc:
+            for error in exc.messages:
+                form.add_error(None, error)
+        except IntegrityError:
+            form.add_error(None, "Revise si la identidad, la casa o la placa ya está registrada.")
+        else:
+            request.session[f"{clave_sesion}{casa.pk}"] = {
+                "usuario": casa.responsable_actual.usuario.username, "password": temporal,
+                "nombre": casa.responsable_actual.nombre_completo, "casa_id": casa.pk,
+                "placa": vehiculo.placa if vehiculo else "",
+            }
+            return redirect(reverse("registrar_residente", query={"alta": casa.pk}))
+    return render(request, "facturacion/registrar_residente.html", {
+        "form": form, "colonia": colonia,
+        "form_vehiculo": form_vehiculo, "agregar_vehiculo": agregar_vehiculo,
+        "alta": request.session.pop(clave_sesion + request.GET["alta"], None)
+                if request.method == "GET" and "alta" in request.GET else None,
+    })
 
 
 @roles_requeridos(*ROLES_GESTION)
@@ -268,6 +312,10 @@ def cuotas_generar(request):
 
 @roles_requeridos(*ROLES_FINANCIEROS)
 def pagos_lista(request):
+    if request.user.rol == User.Rol.TESORERO and ocultar_listado_pagos(
+        request.user, colonias_permitidas(request.user).first()
+    ):
+        return redirect("tesoreria")
     pagos = _pagos_permitidos(request.user).select_related("casa", "colonia", "responsable", "usuario_que_registra")
     buscar = request.GET.get("q", "").strip()
     if buscar:
@@ -490,6 +538,8 @@ def comprobantes_gestion(request):
         initial = {'estado': 'APROBADO', 'comentario_revision': item.comentario_revision}
         if len(cuotas) == 1:
             initial.update(anio=cuotas[0].anio, mes=cuotas[0].mes)
+        elif not cuotas and len(item.periodos_solicitados) == 1:
+            initial.update(item.periodos_solicitados[0])
         item.revision_form = RevisarComprobanteForm(initial=initial, auto_id=f'id_{item.pk}_%s')
         for field in item.revision_form.fields.values():
             field.widget.attrs['form'] = f'revision-{item.pk}'
@@ -514,6 +564,8 @@ def comprobante_revisar(request, pk):
     initial = {'estado': 'APROBADO', 'comentario_revision': comprobante.comentario_revision}
     if len(cuotas) == 1:
         initial.update(anio=cuotas[0].anio, mes=cuotas[0].mes)
+    elif not cuotas and len(comprobante.periodos_solicitados) == 1:
+        initial.update(comprobante.periodos_solicitados[0])
     form = RevisarComprobanteForm(request.POST if request.method == 'POST' else None, initial=initial)
     if request.method == 'POST' and form.is_valid():
         try:

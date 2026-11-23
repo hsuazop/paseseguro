@@ -1,9 +1,9 @@
-# APK de Residencia Segura
+# APK de Residencial Segura
 
 La aplicación Android abre la web publicada mediante una Trusted Web Activity.
 El proyecto está en `C:\dev\android\paseseguro`, con paquete
 `com.paseseguro.app`, versión actual `1.2.0` y código de versión `4`.
-El nombre visible es **Residencia Segura** y abre `https://residencialsegura.com/`.
+El nombre visible es **Residencial Segura** y abre `https://residencialsegura.com/`.
 Se conserva el paquete y la firma anteriores para instalarla como actualización.
 Requiere Android 7 (API 24) o posterior y conexión al servidor.
 

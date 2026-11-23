@@ -11,19 +11,13 @@ from .models import ComprobantePago, CuentaPagoColonia, CuotaMensual, Pago, Tari
 
 class CasaPagoChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, casa):
-        return f"{casa.responsable_actual.nombre_completo} — Casa {casa.codigo} — {casa.responsable_actual.identidad}"
+        residente = casa.responsable_actual
+        etiqueta = f"{residente.nombre_completo} — Casa {casa.codigo}"
+        return f"{etiqueta} — {residente.identidad}" if residente.identidad else etiqueta
 
 
 class PagoEfectivoForm(forms.Form):
-    tipo = forms.ChoiceField(label="Registrar para", choices=(("existente", "Vecino registrado"), ("nuevo", "Nuevo vecino")))
-    casa = CasaPagoChoiceField(label="Vecino", queryset=Casa.objects.none(), required=False)
-    nombre_completo = forms.CharField(label="Nombre completo", max_length=180, required=False)
-    identidad = forms.CharField(label="Identidad", max_length=20, required=False)
-    telefono = forms.CharField(label="Teléfono", max_length=30, required=False)
-    correo = forms.EmailField(label="Correo electrónico", max_length=254, required=False,
-                             help_text="Dirección donde se enviarán los recibos del vecino.")
-    codigo_casa = forms.CharField(label="Número o código de casa", max_length=40, required=False,
-                                  help_text="Se asignará una casa disponible con este código o se creará en su residencial.")
+    casa = CasaPagoChoiceField(label="Residente", queryset=Casa.objects.none())
     mes = forms.TypedChoiceField(choices=CuotaMensual.MESES, coerce=int)
     anio = forms.IntegerField(label="Año", min_value=2020, max_value=2100)
     fecha_pago = forms.DateField(label="Fecha de pago", widget=forms.DateInput(attrs={"type": "date"}))
@@ -32,38 +26,11 @@ class PagoEfectivoForm(forms.Form):
     observaciones = forms.CharField(required=False, widget=forms.Textarea(attrs={"rows": 2}))
 
     def __init__(self, *args, colonia, **kwargs):
-        self.colonia = colonia
         super().__init__(*args, **kwargs)
         self.fields["casa"].queryset = Casa.objects.filter(
             colonia=colonia, activa=True, responsable_actual__activo=True,
         ).select_related("responsable_actual", "responsable_actual__usuario").order_by("responsable_actual__nombre_completo", "codigo")
-        nuevo = (self.data.get("tipo") if self.is_bound else self.initial.get("tipo")) == "nuevo"
-        self.fields["correo"].required = nuevo
-        # Un pago de un vecino existente nunca modifica su correo, incluso si lo envían en el POST.
-        self.fields["correo"].disabled = self.is_bound and not nuevo
         aplicar_bootstrap(self)
-
-    def clean(self):
-        from accounts.models import User
-        from residentes.models import Responsable
-
-        data = super().clean()
-        if data.get("tipo") == "existente":
-            if not data.get("casa"):
-                self.add_error("casa", "Seleccione el vecino que entrega el efectivo.")
-        elif data.get("tipo") == "nuevo":
-            for campo in ("nombre_completo", "identidad", "codigo_casa"):
-                if not data.get(campo):
-                    self.add_error(campo, "Este campo es obligatorio para registrar al vecino.")
-            identidad = data.get("identidad")
-            if identidad and (Responsable.objects.filter(identidad=identidad).exists() or
-                              User.objects.filter(Q(identidad=identidad) | Q(username=identidad)).exists()):
-                self.add_error("identidad", "Esta identidad ya está registrada. Seleccione al vecino registrado o solicite su asignación al administrador.")
-            if Casa.objects.filter(colonia=self.colonia, codigo=data.get("codigo_casa")).filter(
-                Q(activa=False) | Q(responsable_actual__isnull=False)
-            ).exists():
-                self.add_error("codigo_casa", "Esta casa ya tiene responsable o está inactiva.")
-        return data
 
 
 class TarifaColoniaForm(forms.ModelForm):
@@ -145,7 +112,7 @@ class AnularPagoForm(forms.Form):
         aplicar_bootstrap(self)
 
 
-class ComprobantePagoForm(forms.ModelForm):
+class DatosComprobanteForm(forms.ModelForm):
     anio = forms.IntegerField(label="Año que pagas", min_value=2020, max_value=9999)
     mes = forms.TypedChoiceField(label="Mes que pagas", coerce=int, choices=CuotaMensual.MESES)
 
@@ -171,6 +138,14 @@ class ComprobantePagoForm(forms.ModelForm):
         self.order_fields(("anio", "mes", "monto", "metodo_pago", "archivo", "comentario"))
         aplicar_bootstrap(self)
 
+    def clean_archivo(self):
+        archivo = self.cleaned_data.get("archivo")
+        if archivo and archivo.size > 8 * 1024 * 1024:
+            raise forms.ValidationError("El comprobante no puede superar 8 MB.")
+        return archivo
+
+
+class ComprobantePagoForm(DatosComprobanteForm):
     def clean(self):
         data = super().clean()
         if data.get("anio") and data.get("mes"):
@@ -203,13 +178,6 @@ class ComprobantePagoForm(forms.ModelForm):
             else:
                 data["cuota"] = cuota
         return data
-
-    def clean_archivo(self):
-        archivo = self.cleaned_data.get("archivo")
-        if archivo and archivo.size > 8 * 1024 * 1024:
-            raise forms.ValidationError("El comprobante no puede superar 8 MB.")
-        return archivo
-
 
 class RevisarComprobanteForm(forms.Form):
     anio = forms.IntegerField(label='Año a registrar', min_value=2020, max_value=9999, required=False)

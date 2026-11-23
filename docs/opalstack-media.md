@@ -48,7 +48,7 @@ Documentación de referencia:
 La configuración remota solo queda confirmada después de verificar el panel,
 la carpeta real y la apertura de un archivo del servidor.
 
-## Despliegue de Residencia Segura con el acceso SSH actual
+## Despliegue de Residencial Segura con el acceso SSH actual
 
 El sitio actual dispone de una aplicación Nginx en `/static`. Para publicar
 media usando ese acceso, se configura lo siguiente:

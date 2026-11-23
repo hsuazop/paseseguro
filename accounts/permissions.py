@@ -13,6 +13,13 @@ ROLES_FINANCIEROS = (User.Rol.ADMINISTRADOR, User.Rol.TESORERO)
 ROLES_ACCESO = (User.Rol.ADMINISTRADOR, User.Rol.GUARDIA)
 
 
+def ocultar_listado_pagos(user, colonia):
+    return (
+        colonia is not None and user.rol == User.Rol.TESORERO
+        and not user.is_superuser and colonia.nombre == "Residencial Villa Olímpica"
+    )
+
+
 def colonias_permitidas(user):
     from colonias.models import Colonia
 
