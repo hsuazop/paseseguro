@@ -1,0 +1,1 @@
+Cuando un residente crea el QR para un amigo, el guardia tiene que registrar el QR y, así mismo, enviar una notificación al residente que creó el QR para que este sepa que su amigo ha ingresado al lugar. y cuando se escanea QR se tiene que registrar el auto que ingreso placa opcional pero si foto y le cae notificacion al residente
