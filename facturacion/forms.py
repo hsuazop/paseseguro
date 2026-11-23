@@ -1,10 +1,13 @@
 from django import forms
 from decimal import Decimal
+from uuid import uuid4
 from django.db.models import Q
 from django.utils import timezone
 
 from colonias.models import Casa, Colonia
 from core.forms import aplicar_bootstrap
+from residentes.forms import ETIQUETAS_CUENTA_PAGO
+from .adjuntos import validar_adjunto
 
 from .models import ComprobantePago, CuentaPagoColonia, CuotaMensual, Pago, TarifaColonia, TarifaEspecialCasa
 
@@ -31,6 +34,26 @@ class PagoEfectivoForm(forms.Form):
             colonia=colonia, activa=True, responsable_actual__activo=True,
         ).select_related("responsable_actual", "responsable_actual__usuario").order_by("responsable_actual__nombre_completo", "codigo")
         aplicar_bootstrap(self)
+
+
+class ComprobanteTesoreriaForm(PagoEfectivoForm):
+    operacion = forms.UUIDField(initial=uuid4, widget=forms.HiddenInput)
+    metodo_pago = forms.ChoiceField(label="Método de pago", choices=[
+        (Pago.Metodo.DEPOSITO, "Depósito"), (Pago.Metodo.TRANSFERENCIA, "Transferencia"),
+    ])
+    banco = ComprobantePago._meta.get_field("banco").formfield(label=ETIQUETAS_CUENTA_PAGO["banco"])
+    numero_cuenta = ComprobantePago._meta.get_field("numero_cuenta").formfield(label=ETIQUETAS_CUENTA_PAGO["numero_cuenta"])
+    archivo = forms.FileField(label="Comprobante recibido", help_text="Foto JPG, PNG, WEBP o PDF de hasta 8 MB.",
+                              widget=forms.FileInput(attrs={"accept": ".jpg,.jpeg,.png,.webp,.pdf"}))
+    field_order = ("casa", "mes", "anio", "fecha_pago", "monto_total", "metodo_pago", "banco",
+                   "numero_cuenta", "archivo", "observaciones", "operacion")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["monto_total"].label = "Monto del comprobante"
+
+    def clean_archivo(self):
+        return validar_adjunto(self.cleaned_data["archivo"])
 
 
 class TarifaColoniaForm(forms.ModelForm):
@@ -146,6 +169,18 @@ class DatosComprobanteForm(forms.ModelForm):
 
 
 class ComprobantePagoForm(DatosComprobanteForm):
+    class Meta(DatosComprobanteForm.Meta):
+        fields = ("monto", "metodo_pago", "banco", "numero_cuenta", "archivo", "comentario")
+        labels = ETIQUETAS_CUENTA_PAGO
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.casa and self.casa.responsable_actual:
+            responsable = self.casa.responsable_actual
+            self.initial.setdefault("banco", responsable.banco)
+            self.initial.setdefault("numero_cuenta", responsable.numero_cuenta)
+        self.order_fields(("anio", "mes", "monto", "metodo_pago", "banco", "numero_cuenta", "archivo", "comentario"))
+
     def clean(self):
         data = super().clean()
         if data.get("anio") and data.get("mes"):

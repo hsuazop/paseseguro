@@ -26,6 +26,7 @@ class ResponsableAdmin(BaseAdmin):
     list_select_related = ("usuario",)
     fieldsets = (("Datos personales", {"fields": ("nombre_completo", "identidad", "activo")}),
                  ("Contacto", {"fields": ("telefono", "correo")}),
+                 ("Datos del pago", {"fields": ("banco", "numero_cuenta")}),
                  ("Cuenta y registro", {"fields": ("usuario", "creado_por", "created_at", "updated_at")}))
 
 

@@ -70,7 +70,11 @@ class RegistroPublicoTests(TestCase):
         url = reverse("registro_villa_con_comprobante")
         self.assertContains(self.client.get(url), 'enctype="multipart/form-data"')
         self.assertNotContains(self.client.get(self.url), 'name="pago-archivo"')
-        datos = {**self.datos, "pago-anio": 2027, "pago-mes": 4, "pago-monto": "350.00",
+        pagina = self.client.get(url)
+        self.assertContains(pagina, 'name="banco"', count=1)
+        self.assertContains(pagina, 'name="numero_cuenta"', count=1)
+        datos = {**self.datos, "banco": "BAC", "numero_cuenta": "001234567",
+                 "pago-anio": 2027, "pago-mes": 4, "pago-monto": "350.00",
                  "pago-metodo_pago": "TRANSFERENCIA"}
         for archivo in (None, SimpleUploadedFile("foto.png", b"invalido")):
             respuesta = self.client.post(url, {**datos, **({"pago-archivo": archivo} if archivo else {})})
@@ -83,6 +87,10 @@ class RegistroPublicoTests(TestCase):
             respuesta = self.client.post(url, datos, follow=True)
             self.assertContains(respuesta, "Recibimos tu comprobante")
             registro = RegistroPublico.objects.get()
+            self.assertEqual((registro.responsable.banco, registro.responsable.numero_cuenta), ("BAC", "001234567"))
+            registro.responsable.banco = "FICOHSA"
+            registro.responsable.numero_cuenta = "000111"
+            registro.responsable.save()
             self.assertEqual(registro.adjunto.archivo.read(), imagen.getvalue())
             registro.adjunto.archivo.close()
             self.assertFalse(ComprobantePago.objects.exists())
@@ -91,6 +99,7 @@ class RegistroPublicoTests(TestCase):
             self.client.force_login(tesorero)
             self.client.post(reverse("confirmar_inscripcion", args=[registro.pk]), self.datos)
             item = ComprobantePago.objects.get()
+            self.assertEqual((item.banco, item.numero_cuenta), ("BAC", "001234567"))
             self.assertEqual(item.estado, ComprobantePago.Estado.PENDIENTE)
             self.assertEqual(item.enviado_por, registro.responsable.usuario)
             self.assertEqual(item.archivo.name, registro.adjunto.archivo.name)

@@ -4,9 +4,10 @@ from django.db import models
 from django.db.models import Q
 
 from core.models import TimeStampedModel
+from .datos_pago import DatosBancariosPago
 
 
-class Responsable(TimeStampedModel):
+class Responsable(DatosBancariosPago, TimeStampedModel):
     nombre_completo = models.CharField(max_length=180)
     identidad = models.CharField(max_length=20, unique=True, blank=True, null=True)
     telefono = models.CharField(max_length=30, blank=True)
@@ -50,7 +51,7 @@ class RegistroPublico(TimeStampedModel):
     confirmado = models.BooleanField(default=False)
 
 
-class ComprobanteInscripcion(TimeStampedModel):
+class ComprobanteInscripcion(DatosBancariosPago, TimeStampedModel):
     registro = models.OneToOneField(RegistroPublico, on_delete=models.CASCADE, related_name="adjunto")
     archivo = models.FileField(upload_to="comprobantes/%Y/%m/")
     anio = models.PositiveSmallIntegerField()

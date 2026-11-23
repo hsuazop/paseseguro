@@ -6,6 +6,7 @@
   <div><h2 class="page-title">Vigilancia del mes</h2><p class="page-subtitle">Revise quién pagó, registre efectivo y valide los comprobantes enviados.</p></div>
   <div class="page-actions d-flex flex-wrap gap-2">
     {% if colonia %}<a class="btn btn-primary" href="{% url 'pago_efectivo' %}?mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar efectivo</a>
+    <a class="btn btn-outline-primary" href="{% url 'comprobante_tesoreria' %}?mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar comprobante</a>
     <a class="btn btn-outline-primary" href="{% url 'registrar_residente' %}">Registrar Residente</a>
     {% if colonia.nombre == 'Residencial Villa Olímpica' %}<a class="btn btn-outline-secondary" href="{% url 'inscripciones_publicas' %}">Confirmar registros públicos</a>{% endif %}{% endif %}
     <a class="btn btn-outline-primary" href="{% url 'comprobantes_gestion' %}?estado=PENDIENTE">Ver comprobantes pendientes</a>
@@ -36,18 +37,20 @@
   <div class="input-group"><input type="search" id="buscar-vigilancia" class="form-control" placeholder="Escribe para filtrar la tabla" aria-controls="vigilancia-tabla" autocomplete="off"><button type="button" class="btn btn-outline-secondary" data-clear-search>Limpiar</button></div>
   <p class="small text-muted mb-0 mt-2" role="status" data-search-count></p>
 </div>
-<div class="table-responsive"><table id="vigilancia-tabla" data-mobile-cards class="table align-middle mb-0"><thead><tr><th>Casa</th><th>Responsable</th><th>Cuota de vigilancia</th><th>Estado</th><th></th></tr></thead><tbody>
+<div class="table-responsive"><table id="vigilancia-tabla" data-mobile-cards class="table align-middle mb-0"><thead><tr><th>Casa</th><th>Responsable</th><th>Cuota de vigilancia</th><th>Estado</th><th>Cómo se pagó</th><th></th></tr></thead><tbody>
 {% for fila in filas %}<tr data-search-text="{{ fila.casa.codigo }} {{ fila.responsable.nombre_completo }} {{ fila.responsable.telefono|default:'' }}">
   <td><strong>{{ fila.casa.codigo }}</strong></td><td>{{ fila.responsable.nombre_completo }}<div class="small text-muted">{{ fila.responsable.telefono|default:'' }}</div></td>
   <td>{% if fila.cuota %}{{ fila.cuota.monto_pagado|moneda }} de {{ fila.cuota.monto_original|moneda }}{% else %}<span class="text-muted">Sin cuota generada</span>{% endif %}</td>
   <td>{% if fila.estado == 'PAGADA' %}<span class="badge text-bg-success">Pagó</span>{% elif fila.estado == 'POR_VALIDAR' %}<span class="badge text-bg-warning">Comprobante por validar</span>{% else %}<span class="badge text-bg-danger">Pendiente</span>{% endif %}</td>
+  <td>{% for canal in fila.canales %}<div>{{ canal }}</div>{% empty %}Sin pago aplicado{% endfor %}</td>
   <td class="text-end">
-    {% if fila.estado != 'PAGADA' %}<a class="btn btn-sm btn-outline-success" href="{% url 'pago_efectivo' %}?casa={{ fila.casa.pk|unlocalize }}&mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar efectivo</a>{% endif %}
+    {% if fila.estado != 'PAGADA' %}<a class="btn btn-sm btn-outline-success" href="{% url 'pago_efectivo' %}?casa={{ fila.casa.pk|unlocalize }}&mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar efectivo</a>
+    <a class="btn btn-sm btn-outline-primary" href="{% url 'comprobante_tesoreria' %}?casa={{ fila.casa.pk|unlocalize }}&mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar comprobante</a>{% endif %}
     {% if fila.estado == 'POR_VALIDAR' %}<a class="btn btn-sm btn-primary" href="{% url 'comprobante_revisar' fila.comprobante.pk %}">Validar</a>{% elif fila.comprobante %}<a class="btn btn-sm btn-outline-primary" href="{% url 'comprobante_revisar' fila.comprobante.pk %}">Ver comprobante</a>{% endif %}
     {% if fila.comprobante.pago_id %}<a class="btn btn-sm btn-outline-success" href="{% url 'recibo_detalle' fila.comprobante.pago_id %}">Ver recibo</a>{% endif %}
   </td>
-</tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-5">No hay personas con residencia registrada. Use «Registrar Residente» para registrar el primero.</td></tr>{% endfor %}
-{% if filas %}<tr class="d-none" data-search-empty><td colspan="5" class="text-center text-muted py-4">No se encontraron residentes para esta búsqueda.</td></tr>{% endif %}
+</tr>{% empty %}<tr><td colspan="6" class="text-center text-muted py-5">No hay personas con residencia registrada. Use «Registrar Residente» para registrar el primero.</td></tr>{% endfor %}
+{% if filas %}<tr class="d-none" data-search-empty><td colspan="6" class="text-center text-muted py-4">No se encontraron residentes para esta búsqueda.</td></tr>{% endif %}
 </tbody></table></div></div>
 <section class="card mt-4">
   <div class="card-header"><h2 class="h5 mb-1">Pagos aplicados a {{ mes|nombre_mes }} {{ anio|unlocalize }}</h2><p class="small text-muted mb-0">Comprobantes confirmados y pagos registrados en efectivo.</p></div>
@@ -62,7 +65,7 @@
     <tbody>{% for aplicacion in aplicaciones %}<tr data-search-text="{{ aplicacion.pago.responsable.nombre_completo }} {{ aplicacion.pago.casa.codigo }} {{ aplicacion.pago.numero_recibo }}">
       <td>{{ aplicacion.pago.responsable.nombre_completo }}<div class="small text-muted">Casa {{ aplicacion.pago.casa.codigo }}</div></td>
       <td>{{ aplicacion.pago.fecha_pago|date:'d/m/Y' }}</td>
-      <td>{{ aplicacion.pago.get_metodo_pago_display }}</td>
+      <td>{{ aplicacion.pago.get_metodo_pago_display }}{% if aplicacion.pago.comprobante_origen %}<div class="small text-muted">{{ aplicacion.pago.canal_registro }}</div>{% endif %}</td>
       <td class="fw-bold text-success">{{ aplicacion.monto_aplicado|moneda }}</td>
       <td><a class="btn btn-sm btn-outline-success" href="{% url 'recibo_detalle' aplicacion.pago_id %}">Ver recibo {{ aplicacion.pago.numero_recibo }}</a>{% if aplicacion.pago.comprobante_origen %}<a class="btn btn-sm btn-outline-primary" href="{% url 'comprobante_revisar' aplicacion.pago.comprobante_origen.pk %}">Ver comprobante / correo</a>{% endif %}</td>
     </tr>{% empty %}<tr><td colspan="5" class="text-center text-muted py-4">No hay pagos aplicados a este período.</td></tr>{% endfor %}

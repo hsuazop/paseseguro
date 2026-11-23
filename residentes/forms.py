@@ -9,6 +9,12 @@ from core.forms import aplicar_bootstrap
 from .models import Responsable
 
 
+ETIQUETAS_CUENTA_PAGO = {
+    "banco": "Banco de destino (opcional)",
+    "numero_cuenta": "Número de cuenta de destino (opcional)",
+}
+
+
 class ResponsableForm(forms.ModelForm):
     identidad = forms.CharField(label="Identidad", max_length=20)
     correo = forms.EmailField(label="Correo electrónico", max_length=254, help_text="Dirección donde se enviarán los recibos.")
@@ -16,7 +22,8 @@ class ResponsableForm(forms.ModelForm):
 
     class Meta:
         model = Responsable
-        fields = ("nombre_completo", "identidad", "correo", "telefono", "activo")
+        fields = ("nombre_completo", "identidad", "correo", "telefono", "banco", "numero_cuenta", "activo")
+        labels = ETIQUETAS_CUENTA_PAGO
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,7 +39,13 @@ class AsignarResponsableForm(forms.Form):
         aplicar_bootstrap(self)
 
 
-class PerfilResidenteForm(forms.Form):
+class CamposBancariosForm(forms.Form):
+    banco = Responsable._meta.get_field("banco").formfield(label=ETIQUETAS_CUENTA_PAGO["banco"])
+    numero_cuenta = Responsable._meta.get_field("numero_cuenta").formfield(label=ETIQUETAS_CUENTA_PAGO["numero_cuenta"])
+
+
+class PerfilResidenteForm(CamposBancariosForm):
+    field_order = ("nombre", "apellido", "correo", "telefono", "banco", "numero_cuenta")
     nombre = forms.CharField(max_length=150)
     apellido = forms.CharField(max_length=150, required=False)
     correo = forms.EmailField(label="Correo electrónico", max_length=254, help_text="Dirección donde se enviarán los recibos.")
@@ -62,6 +75,8 @@ class PerfilResidenteForm(forms.Form):
                 apellido=usuario.last_name,
                 correo=getattr(responsable, "correo", "") or usuario.email,
                 telefono=getattr(responsable, "telefono", ""),
+                banco=getattr(responsable, "banco", ""),
+                numero_cuenta=getattr(responsable, "numero_cuenta", ""),
             )
         aplicar_bootstrap(self)
 
@@ -81,7 +96,8 @@ class PerfilResidenteForm(forms.Form):
         return cleaned
 
 
-class RegistrarResidenteForm(forms.Form):
+class RegistrarResidenteForm(CamposBancariosForm):
+    field_order = ("nombre_completo", "identidad", "telefono", "correo", "codigo_casa", "banco", "numero_cuenta")
     nombre_completo = forms.CharField(label="Nombre completo", max_length=180)
     identidad = forms.CharField(label="Identidad (opcional)", max_length=20, required=False)
     telefono = forms.CharField(label="Teléfono (opcional)", max_length=30, required=False)

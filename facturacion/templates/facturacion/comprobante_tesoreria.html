@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block title %}Registrar comprobante | Residencial Segura{% endblock %}
+{% block content %}
+<h1 class="page-title">Registrar comprobante</h1>
+<p>{{ colonia.nombre }} · Adjunte el comprobante recibido del residente y confirme el mes que pagó.</p>
+<form method="post" enctype="multipart/form-data" class="card card-body">{% csrf_token %}
+  {% for campo in form.hidden_fields %}{{ campo }}{{ campo.errors }}{% endfor %}
+  <div class="row g-3 mb-3">
+    {% for campo in form.visible_fields %}
+    <div class="col-md-6">{{ campo.label_tag }}{{ campo }}{{ campo.errors }}
+      {% if campo.help_text %}<div class="form-text" id="{{ campo.auto_id }}_helptext">{{ campo.help_text }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div><button type="submit" class="btn btn-primary">Confirmar pago y generar recibo</button>
+  <a class="btn btn-outline-secondary" href="{% url 'tesoreria' %}">Volver</a></div>
+</form>
+{% endblock %}

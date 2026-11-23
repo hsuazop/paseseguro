@@ -1,9 +1,6 @@
 import secrets
-from pathlib import Path
 from smtplib import SMTPException
-from uuid import uuid4
 
-from PIL import Image
 
 from django import forms
 from django.conf import settings
@@ -21,16 +18,14 @@ from accesos.forms import VehiculoForm
 from accesos.models import Vehiculo
 from accounts.models import User
 from accounts.permissions import ROLES_FINANCIEROS, colonia_actual, roles_requeridos
-from colonias.models import Casa, Colonia
+from colonias.models import Casa, Colonia, VILLA_OLIMPICA
 from core.models import registrar_auditoria
+from facturacion.adjuntos import validar_adjunto
 from facturacion.forms import DatosComprobanteForm
 from facturacion.models import ComprobantePago
 from .forms import RegistrarResidenteForm
 from .models import ComprobanteInscripcion, RegistroPublico, Responsable
 from .services import asignar_responsable, crear_usuario_residente
-
-
-VILLA_OLIMPICA = "Residencial Villa Olímpica"
 
 
 class FormularioPublico(RegistrarResidenteForm):
@@ -64,24 +59,7 @@ def clave_temporal():
 
 class ComprobantePublicoForm(DatosComprobanteForm):
     def clean_archivo(self):
-        archivo = super().clean_archivo()
-        extension = Path(archivo.name).suffix.lower()
-        try:
-            if extension == ".pdf":
-                if archivo.read(5) != b"%PDF-":
-                    raise forms.ValidationError("Adjunta un PDF válido.")
-            else:
-                formatos = {".png": "PNG", ".jpg": "JPEG", ".jpeg": "JPEG", ".webp": "WEBP"}
-                with Image.open(archivo) as imagen:
-                    if imagen.format != formatos.get(extension):
-                        raise forms.ValidationError("El formato del archivo no coincide con su extensión.")
-                    imagen.verify()
-        except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
-            raise forms.ValidationError("No se pudo leer la imagen del comprobante.")
-        finally:
-            archivo.seek(0)
-        archivo.name = f"{uuid4().hex}{extension}"
-        return archivo
+        return validar_adjunto(self.cleaned_data["archivo"])
 
 
 @transaction.atomic
@@ -93,6 +71,7 @@ def inscribir(colonia, datos, vehiculo, comprobante=None):
     responsable = Responsable(
         nombre_completo=datos["nombre_completo"], identidad=datos["identidad"],
         telefono=datos["telefono"], correo=correo,
+        banco=datos["banco"], numero_cuenta=datos["numero_cuenta"],
     )
     responsable.full_clean()
     responsable.save()
@@ -100,7 +79,8 @@ def inscribir(colonia, datos, vehiculo, comprobante=None):
     registro = RegistroPublico.objects.create(colonia=colonia, responsable=responsable,
                                              descripcion_casa=datos["codigo_casa"], vehiculo=vehiculo)
     if comprobante:
-        ComprobanteInscripcion.objects.create(registro=registro, **comprobante)
+        ComprobanteInscripcion.objects.create(registro=registro, banco=responsable.banco,
+                                              numero_cuenta=responsable.numero_cuenta, **comprobante)
     return usuario, clave
 
 
@@ -178,6 +158,7 @@ def confirmar_inscripcion(request, pk):
                 recibo = ComprobantePago.objects.create(
                     casa=casa, colonia=colonia, responsable=item.responsable, enviado_por=item.responsable.usuario,
                     archivo=adjunto.archivo.name, monto=adjunto.monto, metodo_pago=adjunto.metodo_pago,
+                    banco=adjunto.banco, numero_cuenta=adjunto.numero_cuenta,
                     fecha_pago=timezone.localdate(adjunto.created_at), comentario=adjunto.comentario,
                     periodos_solicitados=[{"anio": adjunto.anio, "mes": adjunto.mes}],
                 )

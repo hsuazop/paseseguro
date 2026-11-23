@@ -10,7 +10,8 @@ from django.contrib.auth.decorators import login_required
 
 from accounts.models import User
 from accounts.permissions import ROLES_GESTION, colonias_permitidas, roles_requeridos
-from facturacion.models import AplicacionPago, CuotaMensual
+from colonias.models import VILLA_OLIMPICA
+from facturacion.models import AplicacionPago, CuentaPagoColonia, CuotaMensual
 from facturacion.services import obtener_saldo_casa
 from django.utils import timezone
 from core.pagination import paginar
@@ -72,6 +73,17 @@ def _casa_residente(user, pk):
     return casa_del_residente(user, pk)
 
 
+def _cuentas_para_vigilancia(responsable, colonia):
+    if not colonia or colonia.nombre != VILLA_OLIMPICA:
+        return []
+    cuentas = CuentaPagoColonia.objects.filter(colonia=colonia, activa=True).filter(
+        Q(banco__iexact="BAC") | Q(banco__iexact="Ficohsa")
+    )
+    return sorted(cuentas, key=lambda c: (
+        c.banco.upper() != responsable.banco, c.numero_cuenta != responsable.numero_cuenta, c.banco, c.pk,
+    ))
+
+
 def mi_cuenta(request):
     if not request.user.is_authenticated:
         return redirect("login")
@@ -82,7 +94,11 @@ def mi_cuenta(request):
     resumen = [{"casa": casa, "saldo": obtener_saldo_casa(casa)} for casa in casas]
     if len(resumen) == 1:
         return redirect("portal_residente", casa_id=resumen[0]["casa"].pk)
-    return render(request, "residentes/mi_cuenta.html", {"responsable": responsable, "propiedades": resumen})
+    registro = getattr(responsable, "registropublico", None)
+    colonia = casas[0].colonia if resumen else (registro.colonia if registro and not registro.confirmado else None)
+    return render(request, "residentes/mi_cuenta.html", {
+        "responsable": responsable, "propiedades": resumen, "cuentas_vigilancia": _cuentas_para_vigilancia(responsable, colonia),
+    })
 
 
 def mi_cuenta_casa(request, casa_id):
@@ -152,6 +168,7 @@ def portal_residente(request, casa_id):
         "saldo_total": obtener_saldo_casa(casa),
         "pagado_anio": pagado_anio,
         "ultimo_mes_pagado": ultimo_mes_pagado,
+        "cuentas_vigilancia": _cuentas_para_vigilancia(responsable, casa.colonia),
         "visitas_activas": Visita.objects.filter(casa=casa, activa=True, fecha_inicio__date__gte=hoy).count(),
         "solicitudes_pendientes": SolicitudMensaje.objects.filter(casa=casa).exclude(
             estado=SolicitudMensaje.Estado.RESUELTO
@@ -181,13 +198,17 @@ def configurar_perfil(request, casa_id):
         request.user.last_name = form.cleaned_data["apellido"]
         request.user.email = form.cleaned_data["correo"]
         responsable.telefono = form.cleaned_data["telefono"]
+        if "banco" in request.POST:
+            responsable.banco = form.cleaned_data["banco"]
+        if "numero_cuenta" in request.POST:
+            responsable.numero_cuenta = form.cleaned_data["numero_cuenta"]
         responsable.correo = form.cleaned_data["correo"]
         responsable.nombre_completo = request.user.get_full_name() or responsable.nombre_completo
         nueva = form.cleaned_data.get("password_nueva")
         if nueva:
             request.user.set_password(nueva)
         request.user.save()
-        responsable.save(update_fields=("telefono", "correo", "nombre_completo", "updated_at"))
+        responsable.save(update_fields=("telefono", "correo", "nombre_completo", "banco", "numero_cuenta", "updated_at"))
         if nueva:
             update_session_auth_hash(request, request.user)
         messages.success(request, "Tu información fue actualizada.")

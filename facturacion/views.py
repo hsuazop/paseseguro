@@ -26,6 +26,7 @@ from core.pagination import paginar
 from .forms import (
     AnularPagoForm,
     ComprobantePagoForm,
+    ComprobanteTesoreriaForm,
     CuotaReferenciaForm,
     CuentaPagoColoniaForm,
     GenerarCuotasForm,
@@ -94,12 +95,18 @@ def tesoreria(request):
             "pago", "pago__casa", "pago__responsable", "pago__comprobante_origen",
         ).order_by("pago__fecha_pago", "pago_id", "pk")
         recaudado = aplicaciones.aggregate(total=Sum("monto_aplicado"))["total"] or Decimal("0.00")
+        canales_por_cuota = {}
+        for aplicacion in aplicaciones:
+            canal = aplicacion.pago.canal_registro
+            canales = canales_por_cuota.setdefault(aplicacion.cuota_mensual_id, [])
+            if canal not in canales:
+                canales.append(canal)
         porcentaje = recaudado / esperado * 100 if esperado else Decimal("0.00")
         comprobantes = (
-            ComprobantePago.objects.filter(
-                colonia=colonia,
-                cuotas__anio=anio,
-                cuotas__mes=mes,
+            ComprobantePago.objects.filter(colonia=colonia).filter(
+                Q(cuotas__anio=anio, cuotas__mes=mes)
+                | Q(cuotas__isnull=True, estado=ComprobantePago.Estado.PENDIENTE,
+                    periodos_solicitados__0__anio=anio, periodos_solicitados__0__mes=mes)
             )
             .select_related("pago")
             .prefetch_related("cuotas")
@@ -130,6 +137,7 @@ def tesoreria(request):
                 "cuota": cuota,
                 "comprobante": comprobante,
                 "estado": estado,
+                "canales": canales_por_cuota.get(cuota.pk, []) if cuota else [],
             })
 
     return render(request, "facturacion/tesoreria.html", {
@@ -182,6 +190,33 @@ def pago_efectivo(request):
             messages.success(request, f"Efectivo registrado. Recibo {pago.numero_recibo}.")
             return redirect("recibo_detalle", pk=pago.pk)
     return render(request, "facturacion/pago_efectivo.html", {"form": form, "colonia": colonia})
+
+
+@roles_requeridos(*ROLES_FINANCIEROS)
+def comprobante_tesoreria(request):
+    from .services.comprobantes import registrar_comprobante_tesoreria
+
+    _, colonia = _colonia_financiera_actual(request)
+    if not colonia:
+        messages.warning(request, "No tiene una residencial activa asignada.")
+        return redirect("tesoreria")
+    hoy = timezone.localdate()
+    form = ComprobanteTesoreriaForm(
+        request.POST if request.method == "POST" else None, request.FILES or None, colonia=colonia,
+        initial={"casa": request.GET.get("casa"), "mes": request.GET.get("mes", hoy.month),
+                 "anio": request.GET.get("anio", hoy.year), "fecha_pago": hoy.isoformat()},
+    )
+    if form.is_valid():
+        try:
+            pago = registrar_comprobante_tesoreria(colonia=colonia, usuario=request.user, datos=form.cleaned_data)
+        except ValidationError as exc:
+            form.add_error(None, " ".join(exc.messages))
+        except (OSError, DatabaseError):
+            form.add_error(None, "No se pudo guardar el comprobante. Vuelva a seleccionar el archivo e intente nuevamente.")
+        else:
+            messages.success(request, f"Comprobante registrado. Recibo {pago.numero_recibo}.")
+            return redirect("recibo_detalle", pk=pago.pk)
+    return render(request, "facturacion/comprobante_tesoreria.html", {"form": form, "colonia": colonia})
 
 
 @roles_requeridos(*ROLES_FINANCIEROS)
@@ -447,7 +482,6 @@ def comprobantes_residente(request, casa_id):
     comprobantes = ComprobantePago.objects.filter(
         responsable=casa.responsable_actual,
         colonia=casa.colonia,
-        enviado_por=request.user,
     ).prefetch_related("cuotas")
     return render(request, "facturacion/comprobantes_residente.html", {"casa": casa, "comprobantes": comprobantes})
 

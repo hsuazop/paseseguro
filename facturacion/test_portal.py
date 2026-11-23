@@ -52,6 +52,11 @@ class ComprobantePortalTests(TestCase):
 
     def test_envio_comprobante_no_modifica_saldo_financiero(self):
         self.client.force_login(self.usuario)
+        self.responsable.banco = "BAC"
+        self.responsable.numero_cuenta = "009100"
+        self.responsable.save()
+        form = self.client.get(reverse("comprobante_enviar", args=(self.casa.pk,))).context["form"]
+        self.assertEqual((form["banco"].value(), form["numero_cuenta"].value()), ("BAC", "009100"))
         archivo = SimpleUploadedFile("comprobante.pdf", b"contenido-de-prueba", content_type="application/pdf")
         response = self.client.post(
             reverse("comprobante_enviar", kwargs={"casa_id": self.casa.pk}),
@@ -61,11 +66,15 @@ class ComprobantePortalTests(TestCase):
                 "monto": "500.00",
                 "metodo_pago": "TRANSFERENCIA",
                 "referencia": "ABC123",
+                "banco": "FICOHSA",
+                "numero_cuenta": "000001",
                 "archivo": archivo,
             },
         )
         self.assertEqual(response.status_code, 302)
         self.assertEqual(ComprobantePago.objects.count(), 1)
+        comprobante = ComprobantePago.objects.get()
+        self.assertEqual((comprobante.banco, comprobante.numero_cuenta), ("FICOHSA", "000001"))
         self.cuota.refresh_from_db()
         self.assertEqual(self.cuota.saldo, Decimal("500.00"))
         self.assertEqual(self.cuota.monto_pagado, Decimal("0.00"))

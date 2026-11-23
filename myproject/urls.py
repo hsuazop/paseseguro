@@ -52,6 +52,7 @@ urlpatterns = [
     path('tesoreria/', factura_views.tesoreria, name='tesoreria'),
     path('tesoreria/residentes/registrar/', factura_views.registrar_residente, name='registrar_residente'),
     path('tesoreria/efectivo/', factura_views.pago_efectivo, name='pago_efectivo'),
+    path('tesoreria/comprobantes/registrar/', factura_views.comprobante_tesoreria, name='comprobante_tesoreria'),
     path('usuarios/', account_views.usuarios_lista, name='usuarios_lista'),
     path('usuarios/nuevo/', account_views.usuario_crear, name='usuario_crear'),
     path('usuarios/<int:pk>/restablecer-password/', account_views.usuario_reset_password, name='usuario_reset_password'),

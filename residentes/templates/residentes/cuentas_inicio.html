@@ -1,0 +1,35 @@
+{% if cuentas_vigilancia %}
+<section id="cuentas-vigilancia" class="card px-3 py-2 mb-3 small" aria-labelledby="titulo-cuentas">
+  <h2 id="titulo-cuentas" class="h6 mb-1">Cuentas para pagar la vigilancia</h2>
+  {% for cuenta in cuentas_vigilancia %}
+  <details name="banco-vigilancia" class="py-1" {% if forloop.first %}open{% endif %}>
+    <summary class="fw-semibold">{{ cuenta.banco }}</summary>
+    <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap mt-1">
+      <div><strong class="d-block numero-cuenta">{{ cuenta.numero_cuenta }}</strong>{{ cuenta.titular }}</div>
+      <button type="button" class="btn btn-sm btn-outline-primary" data-copiar="{{ cuenta.numero_cuenta }}"
+              aria-label="Copiar cuenta de {{ cuenta.banco }}">Copiar</button>
+    </div>
+  </details>
+  {% endfor %}
+  <span role="status" class="text-muted"></span>
+</section>
+<script>
+  const cuentasVigilancia = document.getElementById('cuentas-vigilancia');
+  cuentasVigilancia.addEventListener('click', async event => {
+    const boton = event.target.closest('button[data-copiar]');
+    if (!boton) return;
+    const estado = cuentasVigilancia.querySelector('[role="status"]');
+    try {
+      await navigator.clipboard.writeText(boton.dataset.copiar);
+      estado.textContent = 'Número de cuenta copiado.';
+    } catch {
+      const rango = document.createRange();
+      rango.selectNodeContents(boton.closest('details').querySelector('.numero-cuenta'));
+      const seleccion = window.getSelection();
+      seleccion.removeAllRanges();
+      seleccion.addRange(rango);
+      estado.textContent = 'Número seleccionado. Usa la opción Copiar de tu dispositivo.';
+    }
+  });
+</script>
+{% endif %}

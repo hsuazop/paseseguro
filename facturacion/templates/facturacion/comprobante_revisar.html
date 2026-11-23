@@ -2,6 +2,7 @@
 <a href="{% url 'comprobantes_gestion' %}">Volver a solicitudes</a>
 <div class="card mt-3"><div class="card-body"><h1 class="h3">Comprobante #{{ comprobante.pk }} · {{ comprobante.monto|moneda }}</h1><p>{{ comprobante.colonia.nombre }} · Casa {{ comprobante.casa.codigo }} · {{ comprobante.responsable.nombre_completo }}</p>
 <p>Estado: {{ comprobante.estado_visible }}</p>
+{% if comprobante.banco or comprobante.numero_cuenta %}<p>Datos del pago · {{ comprobante.get_banco_display }} {{ comprobante.numero_cuenta }}</p>{% endif %}
 {% if comprobante.archivo %}<button class="btn btn-outline-primary mb-3" type="button" data-bs-toggle="modal" data-bs-target="#vista-comprobante" data-preview-url="{{ comprobante.archivo.url }}" data-preview-type="{% if comprobante.es_imagen %}image{% else %}pdf{% endif %}">{% if comprobante.es_imagen %}<img src="{{ comprobante.archivo.url }}" alt="Miniatura del comprobante" width="150" height="150" style="object-fit:contain">{% endif %} Ampliar comprobante</button>{% endif %}
 <p>Comentario del residente: {{ comprobante.comentario|default:'Sin comentario' }}</p>
 <p>Período solicitado: {% for p in comprobante.periodos_solicitados %}{{ p.mes }}/{{ p.anio|stringformat:"d" }} {% endfor %}</p>

@@ -1,6 +1,7 @@
 {% extends 'base.html' %}{% load app_tags static %}
 {% block content %}
 <div class="page-header mb-4"><h1 class="page-title">Solicitudes de comprobantes</h1><p class="text-muted">Revisa el comprobante y confirma el pago para generar el recibo y actualizar el mes y año del residente.</p></div>
+<p><a class="btn btn-primary" href="{% url 'comprobante_tesoreria' %}">Registrar comprobante</a></p>
 <form method="get" class="row g-3 mb-4">
   <div class="col-12 col-md-4"><label for="filtro-residente" class="form-label">Residente</label><select id="filtro-residente" name="residente" class="form-select"><option value="">Todos los residentes</option>{% for persona in residentes %}<option value="{{ persona.responsable_id|stringformat:'d' }}" {% if residente == persona.responsable_id|stringformat:'s' %}selected{% endif %}>{{ persona.responsable__nombre_completo }}</option>{% endfor %}</select></div>
   <div class="col-6 col-md-3"><label for="filtro-estado" class="form-label">Estado</label><select id="filtro-estado" name="estado" class="form-select"><option value="">Todos los estados</option>{% for valor, etiqueta in estados %}<option value="{{ valor }}" {% if request.GET.estado == valor %}selected{% endif %}>{{ etiqueta }}</option>{% endfor %}</select></div>

@@ -95,6 +95,7 @@ def registrar_residente(*, colonia, usuario, datos, vehiculo=None):
     responsable = Responsable(
         nombre_completo=datos["nombre_completo"], identidad=datos.get("identidad") or None,
         telefono=datos.get("telefono", ""), correo=correo, creado_por=usuario,
+        banco=datos.get("banco", ""), numero_cuenta=datos.get("numero_cuenta", ""),
     )
     responsable.full_clean()
     responsable.save()

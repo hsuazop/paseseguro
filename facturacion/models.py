@@ -9,6 +9,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.models import TimeStampedModel
+from residentes.datos_pago import DatosBancariosPago
 
 
 class TarifaColonia(TimeStampedModel):
@@ -225,6 +226,13 @@ class Pago(TimeStampedModel):
     def __str__(self):
         return self.numero_recibo
 
+    @property
+    def canal_registro(self):
+        comprobante = getattr(self, "comprobante_origen", None)
+        if comprobante:
+            return "Comprobante subido por Tesorería" if comprobante.registro_tesoreria else "App"
+        return self.get_metodo_pago_display()
+
 
 class AplicacionPago(TimeStampedModel):
     pago = models.ForeignKey(Pago, on_delete=models.PROTECT, related_name="aplicaciones")
@@ -272,7 +280,8 @@ class CuentaPagoColonia(TimeStampedModel):
         return f"{self.banco} - {self.numero_cuenta}"
 
 
-class ComprobantePago(TimeStampedModel):
+class ComprobantePago(DatosBancariosPago, TimeStampedModel):
+    registro_tesoreria = models.UUIDField(null=True, blank=True, unique=True, editable=False)
     class Estado(models.TextChoices):
         PENDIENTE = "PENDIENTE", "Pendiente de revisión"
         APROBADO = "APROBADO", "Aprobado"
@@ -350,6 +359,8 @@ class ComprobantePago(TimeStampedModel):
 
     @property
     def correo_residente(self):
+        if self.registro_tesoreria:
+            return (self.responsable.correo or getattr(self.responsable.usuario, "email", "") or "").strip()
         return (self.enviado_por.email or self.responsable.correo or '').strip()
 
     @property

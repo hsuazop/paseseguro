@@ -4,6 +4,9 @@ from django.db import models
 from core.models import TimeStampedModel
 
 
+VILLA_OLIMPICA = "Residencial Villa Olímpica"
+
+
 class Colonia(TimeStampedModel):
     nombre = models.CharField(max_length=160, unique=True)
     descripcion = models.TextField(blank=True)

@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from tempfile import TemporaryDirectory
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -338,6 +339,48 @@ class FinancialTestCase(TestCase):
         self.assertNotContains(response, 'name="colonia"')
         self.assertNotContains(response, "El Sauce")
         self.assertEqual(response.context["form"].initial["mes"], "3")
+
+    def test_comprobante_tesoreria_abonos_y_canales_por_periodo(self):
+        self.client.force_login(self.tesorero)
+        url = reverse("comprobante_tesoreria")
+        operacion = self.client.get(url).context["form"]["operacion"].value()
+        datos = self.efectivo_datos(monto_total="100.00", metodo_pago="DEPOSITO", operacion=operacion)
+        def subir(**campos):
+            archivo = SimpleUploadedFile("deposito.pdf", b"%PDF-1.4 prueba", content_type="application/pdf")
+            return self.client.post(url, {**datos, **campos, "archivo": archivo})
+
+        with TemporaryDirectory() as carpeta, self.settings(MEDIA_ROOT=carpeta):
+            self.assertIn("casa", subir(casa=self.otra_casa.pk).context["form"].errors)
+            self.assertIn("500", str(subir(monto_total="700").context["form"].non_field_errors()))
+            self.assertFalse(Pago.objects.exists())
+            pago_response = subir(banco="BAC", numero_cuenta="001")
+            item = ComprobantePago.objects.get()
+            self.assertRedirects(pago_response, reverse("recibo_detalle", args=[item.pago_id]))
+            self.assertEqual(item.enviado_por, self.tesorero)
+            self.assertEqual(item.responsable, self.responsable)
+            self.assertEqual(item.banco, "BAC")
+            self.assertEqual(item.pago.metodo_pago, Pago.Metodo.DEPOSITO)
+            self.tesorero.email = "tesorero@example.com"
+            self.tesorero.save()
+            self.assertNotEqual(item.correo_residente, self.tesorero.email)
+            self.assertEqual(subir().status_code, 302)
+            self.assertEqual(Pago.objects.count(), 1)
+            self.client.post(reverse("pago_efectivo"), self.efectivo_datos(monto_total="100"))
+            cuota = item.cuotas.get()
+            comprobante_app = ComprobantePago.objects.create(
+                casa=self.casa, colonia=self.colonia, responsable=self.responsable, enviado_por=self.resident_user,
+                monto=300, metodo_pago="TRANSFERENCIA", archivo="comprobantes/prueba.pdf",
+            )
+            ComprobanteCuota.objects.create(comprobante=comprobante_app, cuota=cuota)
+            self.client.post(reverse("comprobante_revisar", args=[comprobante_app.pk]), {"estado": "APROBADO"})
+            filas = self.client.get(reverse("tesoreria"), {"mes": 1, "anio": 2026}).context["filas"]
+            fila = next(f for f in filas if f["casa"] == self.casa)
+            self.assertEqual(set(fila["canales"]), {"Comprobante subido por Tesorería", "Efectivo", "App"})
+            self.assertEqual(fila["estado"], "PAGADA")
+            self.client.force_login(self.resident_user)
+            self.assertEqual(self.client.get(url).status_code, 403)
+            historial = self.client.get(reverse("comprobantes_residente", args=[self.casa.pk]))
+            self.assertIn(item, historial.context["comprobantes"])
 
     def test_efectivo_genera_cuota_y_recibo_sin_comprobante(self):
         self.client.force_login(self.tesorero)
