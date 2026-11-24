@@ -355,12 +355,14 @@ class FinancialTestCase(TestCase):
             self.assertIn("casa", subir(casa=self.otra_casa.pk).context["form"].errors)
             self.assertIn("500", str(subir(monto_total="700").context["form"].non_field_errors()))
             self.assertFalse(Pago.objects.exists())
-            pago_response = subir(banco="BAC", numero_cuenta="001")
+            pago_response = subir(banco="BAC", numero_cuenta="001", referencia="0004-A")
             item = ComprobantePago.objects.get()
             self.assertRedirects(pago_response, reverse("recibo_detalle", args=[item.pago_id]))
             self.assertEqual(item.enviado_por, self.tesorero)
             self.assertEqual(item.responsable, self.responsable)
             self.assertEqual(item.banco, "BAC")
+            self.assertEqual(item.referencia, "0004-A")
+            self.assertEqual(item.pago.referencia, "0004-A")
             self.assertEqual(item.pago.metodo_pago, Pago.Metodo.DEPOSITO)
             self.tesorero.email = "tesorero@example.com"
             self.tesorero.save()
@@ -374,6 +376,13 @@ class FinancialTestCase(TestCase):
                 monto=300, metodo_pago="TRANSFERENCIA", archivo="comprobantes/prueba.pdf",
             )
             ComprobanteCuota.objects.create(comprobante=comprobante_app, cuota=cuota)
+            duplicado = self.client.post(reverse("comprobante_revisar", args=[comprobante_app.pk]), {
+                "estado": "APROBADO", "anio": 2026, "mes": 2, "referencia": "0004-a",
+            })
+            self.assertContains(duplicado, "referencia bancaria ya se usó")
+            comprobante_app.refresh_from_db()
+            self.assertIsNone(comprobante_app.pago_id)
+            self.assertEqual(comprobante_app.cuotas.get(), cuota)
             self.client.post(reverse("comprobante_revisar", args=[comprobante_app.pk]), {"estado": "APROBADO"})
             filas = self.client.get(reverse("tesoreria"), {"mes": 1, "anio": 2026}).context["filas"]
             fila = next(f for f in filas if f["casa"] == self.casa)

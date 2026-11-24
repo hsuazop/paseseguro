@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from core.models import registrar_auditoria
@@ -72,7 +72,7 @@ def registrar_pago(
     if total_aplicado != monto_total:
         raise ValidationError("El total aplicado debe ser igual al monto recibido.")
 
-    pago = Pago.objects.create(
+    pago = Pago(
         numero_recibo=_siguiente_recibo(fecha_pago.year),
         casa=casa,
         colonia=casa.colonia,
@@ -84,6 +84,15 @@ def registrar_pago(
         observaciones=observaciones.strip(),
         usuario_que_registra=usuario,
     )
+    try:
+        pago.save(force_insert=True)
+    except IntegrityError as exc:
+        if "pago_ref_bancaria_unica" in str(exc):
+            raise ValidationError(
+                "Esta referencia bancaria ya se usó en otro pago de la residencial. "
+                "Verifique el depósito antes de continuar."
+            ) from exc
+        raise
     for cuota, monto in normalizadas:
         AplicacionPago.objects.create(pago=pago, cuota_mensual=cuota, monto_aplicado=monto)
         recalcular_cuota(cuota)

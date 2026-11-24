@@ -33,6 +33,7 @@ def registrar_comprobante_tesoreria(*, colonia, usuario, datos):
             pago = registrar_pago(
                 casa=casa, responsable=casa.responsable_actual, fecha_pago=datos["fecha_pago"],
                 monto_total=datos["monto_total"], metodo_pago=datos["metodo_pago"], usuario=usuario,
+                referencia=datos.get("referencia", ""),
                 observaciones=datos["observaciones"], aplicaciones=[{"cuota_id": cuota.pk, "monto": datos["monto_total"]}],
             )
             item = ComprobantePago(
@@ -40,7 +41,7 @@ def registrar_comprobante_tesoreria(*, colonia, usuario, datos):
                 revisado_por=usuario, revisado_en=timezone.now(), estado=ComprobantePago.Estado.APROBADO,
                 pago=pago, registro_tesoreria=datos["operacion"], fecha_pago=pago.fecha_pago, monto=pago.monto_total,
                 metodo_pago=pago.metodo_pago, banco=datos["banco"], numero_cuenta=datos["numero_cuenta"],
-                archivo=datos["archivo"], comentario=datos["observaciones"],
+                archivo=datos["archivo"], referencia=pago.referencia, comentario=datos["observaciones"],
                 periodos_solicitados=[{"anio": cuota.anio, "mes": cuota.mes}],
             )
             item.full_clean()
@@ -60,6 +61,7 @@ def revisar_comprobante(pk, datos, usuario):
     item = ComprobantePago.objects.select_for_update().get(pk=pk)
     if item.pago_id or item.estado == ComprobantePago.Estado.APROBADO:
         raise ValidationError('Este comprobante ya está registrado. No se puede volver a aplicar ni cambiar su período desde esta solicitud.')
+    item.referencia = datos.get("referencia", item.referencia).strip()
     anteriores = list(item.cuotas.order_by('anio', 'mes').values('anio', 'mes'))
     if not item.periodos_solicitados:
         item.periodos_solicitados = anteriores

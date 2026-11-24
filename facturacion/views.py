@@ -576,7 +576,7 @@ def comprobantes_gestion(request):
     page_obj = paginar(request, comprobantes)
     for item in page_obj:
         cuotas = list(item.cuotas.all())
-        initial = {'estado': 'APROBADO', 'comentario_revision': item.comentario_revision}
+        initial = {'estado': 'APROBADO', 'comentario_revision': item.comentario_revision, 'referencia': item.referencia}
         if len(cuotas) == 1:
             initial.update(anio=cuotas[0].anio, mes=cuotas[0].mes)
         elif not cuotas and len(item.periodos_solicitados) == 1:
@@ -602,7 +602,7 @@ def comprobante_revisar(request, pk):
     comprobante = get_object_or_404(ComprobantePago.objects.select_related('casa', 'colonia', 'responsable', 'enviado_por').prefetch_related('cuotas'),
                                    pk=pk, colonia__in=colonias_permitidas(request.user))
     cuotas = list(comprobante.cuotas.all())
-    initial = {'estado': 'APROBADO', 'comentario_revision': comprobante.comentario_revision}
+    initial = {'estado': 'APROBADO', 'comentario_revision': comprobante.comentario_revision, 'referencia': comprobante.referencia}
     if len(cuotas) == 1:
         initial.update(anio=cuotas[0].anio, mes=cuotas[0].mes)
     elif not cuotas and len(comprobante.periodos_solicitados) == 1:
@@ -610,6 +610,8 @@ def comprobante_revisar(request, pk):
     form = RevisarComprobanteForm(request.POST if request.method == 'POST' else None, initial=initial)
     if request.method == 'POST' and form.is_valid():
         try:
+            if "referencia" not in request.POST:
+                form.cleaned_data.pop("referencia", None)
             comprobante = revisar_comprobante(pk, form.cleaned_data, request.user)
         except ValidationError as exc:
             form.add_error(None, exc)

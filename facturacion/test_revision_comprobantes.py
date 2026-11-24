@@ -32,15 +32,35 @@ class RevisionComprobanteTests(TestCase):
         return self.client.post(self.url, {'estado':'APROBADO','anio':2026,'mes':11,**datos})
 
     def test_corrige_periodo_registra_y_notifica(self):
-        self.assertEqual(self.aceptar().status_code,302)
+        self.assertContains(self.client.get(reverse('comprobantes_gestion')), 'name="referencia"')
+        self.assertEqual(self.aceptar(referencia="001-BAC").status_code,302)
         self.item.refresh_from_db();self.cuota.refresh_from_db()
         self.assertEqual(self.item.estado,'APROBADO');self.assertIsNotNone(self.item.pago_id)
+        self.assertEqual(self.item.referencia, "001-BAC")
+        self.assertEqual(self.item.pago.referencia, "001-BAC")
+        self.assertContains(self.client.get(self.url), "001-BAC")
         self.assertEqual(self.cuota.saldo,500)
         self.assertEqual(self.item.cuotas.get().mes,11)
         self.assertEqual(self.item.cuotas.get().saldo,0)
         self.assertEqual(self.item.periodos_solicitados,[{'anio':2026,'mes':10}])
         self.assertEqual(len(mail.outbox),1);self.assertEqual(mail.outbox[0].to,['residente@example.com'])
         self.assertIn('Pagado',mail.outbox[0].body)
+
+    def test_referencia_duplicada_no_aplica_otro_mes(self):
+        self.aceptar(referencia="001 BC")
+        segundo = ComprobantePago.objects.create(
+            casa=self.casa, colonia=self.colonia, responsable=self.responsable, enviado_por=self.user,
+            monto=500, metodo_pago='TRANSFERENCIA', archivo='comprobantes/segundo.png',
+        )
+        url = reverse('comprobante_revisar', args=[segundo.pk])
+        datos = {'anio': 2026, 'mes': 12, 'estado': 'APROBADO', 'referencia': '001bc'}
+        self.assertContains(self.client.post(url, datos), "referencia bancaria ya se usó")
+        segundo.refresh_from_db()
+        self.assertEqual(segundo.estado, 'PENDIENTE')
+        self.assertFalse(segundo.cuotas.exists())
+        self.assertEqual(Pago.objects.count(), 1)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(self.client.post(url, {**datos, 'referencia': ''}).status_code, 302)
 
     def test_doble_aceptacion_no_duplica_pago_ni_correo(self):
         self.aceptar();response=self.aceptar(mes=12)

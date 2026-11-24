@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import FileExtensionValidator, MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Replace, Upper
 from django.utils import timezone
 
 from colonias.models import VILLA_OLIMPICA
@@ -222,7 +223,14 @@ class Pago(TimeStampedModel):
 
     class Meta:
         ordering = ("-fecha_pago", "-id")
-        constraints = [models.CheckConstraint(condition=Q(monto_total__gt=0), name="pago_monto_positivo")]
+        constraints = [
+            models.CheckConstraint(condition=Q(monto_total__gt=0), name="pago_monto_positivo"),
+            models.UniqueConstraint(
+                "colonia", Upper(Replace("referencia", models.Value(" "), models.Value(""))),
+                condition=Q(anulado=False) & ~Q(referencia=""),
+                name="pago_ref_bancaria_unica",
+            ),
+        ]
 
     def __str__(self):
         return self.numero_recibo

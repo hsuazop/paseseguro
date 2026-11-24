@@ -37,6 +37,7 @@ class PagoEfectivoForm(forms.Form):
 
 
 class ComprobanteTesoreriaForm(PagoEfectivoForm):
+    referencia = forms.CharField(label="Referencia bancaria (opcional)", required=False, max_length=120)
     operacion = forms.UUIDField(initial=uuid4, widget=forms.HiddenInput)
     metodo_pago = forms.ChoiceField(label="Método de pago", choices=[
         (Pago.Metodo.DEPOSITO, "Depósito"), (Pago.Metodo.TRANSFERENCIA, "Transferencia"),
@@ -46,7 +47,7 @@ class ComprobanteTesoreriaForm(PagoEfectivoForm):
     archivo = forms.FileField(label="Comprobante recibido", help_text="Foto JPG, PNG, WEBP o PDF de hasta 8 MB.",
                               widget=forms.FileInput(attrs={"accept": ".jpg,.jpeg,.png,.webp,.pdf"}))
     field_order = ("casa", "mes", "anio", "fecha_pago", "monto_total", "metodo_pago", "banco",
-                   "numero_cuenta", "archivo", "observaciones", "operacion")
+                   "numero_cuenta", "referencia", "archivo", "observaciones", "operacion")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -215,6 +216,7 @@ class ComprobantePagoForm(DatosComprobanteForm):
         return data
 
 class RevisarComprobanteForm(forms.Form):
+    referencia = forms.CharField(label="Referencia bancaria (opcional)", required=False, max_length=120)
     anio = forms.IntegerField(label='Año a registrar', min_value=2020, max_value=9999, required=False)
     mes = forms.TypedChoiceField(label='Mes a registrar', coerce=int, required=False, choices=[('', 'Conservar períodos')] + list(CuotaMensual.MESES))
     estado = forms.ChoiceField(
