@@ -8,6 +8,13 @@
 {% if alta %}
   <h2 class="h5">{{ alta.nombre }}</h2>
   {% if alta.placa %}<p>Vehículo registrado · Placa <strong>{{ alta.placa }}</strong></p>{% endif %}
+  {% if alta.correo %}
+    {% if alta.correo_enviado %}
+      <p class="alert alert-success">Se enviaron las credenciales a <strong>{{ alta.correo }}</strong>.</p>
+    {% else %}
+      <p class="alert alert-warning">El residente quedó registrado, pero falló el envío a <strong>{{ alta.correo }}</strong>. Entréguele las credenciales que aparecen abajo.</p>
+    {% endif %}
+  {% endif %}
   <div class="alert alert-info"><p>Entregue estos datos al residente. La contraseña se muestra una sola vez y deberá cambiarla al ingresar.</p>
     <div>Usuario: <strong>{% firstof alta.usuario alta.identidad %}</strong></div>
     <div>Contraseña temporal: <strong>{{ alta.password }}</strong></div>

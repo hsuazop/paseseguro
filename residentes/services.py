@@ -1,7 +1,10 @@
 from datetime import timedelta
+from smtplib import SMTPException
 from uuid import uuid4
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
@@ -39,6 +42,21 @@ def crear_usuario_residente(responsable, password=None, *, username=None):
     responsable.usuario = usuario
     responsable.save(update_fields=("usuario", "updated_at"))
     return usuario, password
+
+
+def enviar_credenciales_residente(usuario, clave, colonia, enlace, *, casa_pendiente=False):
+    cuerpo = (
+        f"Hola, {usuario.nombre_completo}.\n\nTe has registrado exitosamente en {colonia.nombre}.\n"
+        f"Usuario: {usuario.username}\nContraseña temporal: {clave}\nIngreso: {enlace}\n\n"
+        "Cambia tu contraseña al primer ingreso."
+    )
+    if casa_pendiente:
+        cuerpo += " Tesorería confirmará la casa que indicaste."
+    asunto = f"Tu acceso a {colonia.nombre.removeprefix('Residencial ')}"
+    try:
+        return send_mail(asunto, cuerpo + "\n\nResidencial Segura", settings.DEFAULT_FROM_EMAIL, [usuario.email]) == 1
+    except (OSError, SMTPException):
+        return False
 
 
 @transaction.atomic

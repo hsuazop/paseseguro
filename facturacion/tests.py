@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
+from django.core import mail
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -434,10 +436,31 @@ class FinancialTestCase(TestCase):
         self.assertEqual(vecino.usuario.email, datos["correo"])
         alta = self.client.get(response.url)
         self.assertTrue(vecino.usuario.check_password(alta.context["alta"]["password"]))
+        self.assertContains(alta, "Se enviaron las credenciales")
+        self.assertContains(alta, vecino.correo)
+        mensaje, = mail.outbox
+        self.assertEqual(mensaje.to, [vecino.correo])
+        self.assertIn(f"Usuario: {vecino.usuario.username}\n", mensaje.body)
+        self.assertIn(f"Contraseña temporal: {alta.context['alta']['password']}\n", mensaje.body)
+        self.assertIn(reverse("login"), mensaje.body)
         self.assertNotContains(self.client.get(response.url), "Contraseña temporal")
+        self.assertEqual(len(mail.outbox), 1)
         self.assertContains(alta, f'{reverse("pago_efectivo")}?casa={casa.pk}')
         self.client.post(reverse("pago_efectivo"), self.efectivo_datos(casa=casa.pk))
         self.assertEqual(Pago.objects.get().responsable, vecino)
+
+    @patch("residentes.services.send_mail", side_effect=OSError)
+    def test_alta_con_fallo_de_correo_conserva_credenciales(self, enviar):
+        self.client.force_login(self.tesorero)
+        datos = self.datos_residente(identidad="")
+        respuesta = self.client.post(reverse("registrar_residente"), datos, follow=True)
+        self.assertContains(respuesta, "falló el envío")
+        usuario = Casa.objects.get(colonia=self.colonia, codigo=datos["codigo_casa"]).responsable_actual.usuario
+        self.assertContains(respuesta, usuario.username)
+        clave = respuesta.context["alta"]["password"]
+        self.assertContains(respuesta, clave)
+        self.assertTrue(usuario.check_password(clave))
+        enviar.assert_called_once()
 
     def test_efectivo_no_admite_alta_desde_formulario_anterior(self):
         self.client.force_login(self.tesorero)
@@ -496,6 +519,7 @@ class FinancialTestCase(TestCase):
             self.assertTrue(vecino.usuario.check_password(alta.context["alta"]["password"]))
             usuarios.add(vecino.usuario.username)
         self.assertEqual(len(usuarios), 2)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_alta_rechaza_correo_invalido_si_se_indica(self):
         self.client.force_login(self.tesorero)

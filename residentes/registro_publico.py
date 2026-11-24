@@ -1,12 +1,8 @@
 import secrets
-from smtplib import SMTPException
-
 
 from django import forms
-from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -25,7 +21,7 @@ from facturacion.forms import DatosComprobanteForm
 from facturacion.models import ComprobantePago
 from .forms import RegistrarResidenteForm
 from .models import ComprobanteInscripcion, RegistroPublico, Responsable
-from .services import asignar_responsable, crear_usuario_residente
+from .services import asignar_responsable, crear_usuario_residente, enviar_credenciales_residente
 
 
 class FormularioPublico(RegistrarResidenteForm):
@@ -105,16 +101,9 @@ def registro_villa_olimpica(request, con_comprobante=False):
             form.add_error(None, "No se pudo guardar el archivo. Vuelve a adjuntarlo y envía el formulario de nuevo.")
         else:
             if usuario.email:
-                cuerpo = (
-                    f"Hola, {usuario.nombre_completo}.\n\nTe has registrado exitosamente en {colonia.nombre}.\n"
-                    f"Usuario: {usuario.username}\nContraseña temporal: {clave}\n"
-                    f"Ingreso: {request.build_absolute_uri(reverse('login'))}\n\n"
-                    "Cambia tu contraseña al primer ingreso. Tesorería confirmará la casa que indicaste.\n\nResidencial Segura"
+                enviado = enviar_credenciales_residente(
+                    usuario, clave, colonia, request.build_absolute_uri(reverse("login")), casa_pendiente=True,
                 )
-                try:
-                    enviado = send_mail("Tu acceso a Villa Olímpica", cuerpo, settings.DEFAULT_FROM_EMAIL, [usuario.email]) == 1
-                except (OSError, SMTPException):
-                    enviado = False
                 resultado = {"enviado": enviado, "fallo_correo": not enviado}
             else:
                 resultado = {"usuario": usuario.username, "clave": clave}

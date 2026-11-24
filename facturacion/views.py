@@ -222,7 +222,7 @@ def comprobante_tesoreria(request):
 @roles_requeridos(*ROLES_FINANCIEROS)
 @never_cache
 def registrar_residente(request):
-    from residentes.services import registrar_residente as crear_residente
+    from residentes.services import enviar_credenciales_residente, registrar_residente as crear_residente
 
     _, colonia = _colonia_financiera_actual(request)
     if not colonia:
@@ -245,8 +245,15 @@ def registrar_residente(request):
         except IntegrityError:
             form.add_error(None, "Revise si la identidad, la casa o la placa ya está registrada.")
         else:
+            usuario = casa.responsable_actual.usuario
+            enviado = False
+            if usuario.email:
+                enviado = enviar_credenciales_residente(
+                    usuario, temporal, colonia, request.build_absolute_uri(reverse("login")),
+                )
             request.session[f"{clave_sesion}{casa.pk}"] = {
-                "usuario": casa.responsable_actual.usuario.username, "password": temporal,
+                "usuario": usuario.username, "password": temporal,
+                "correo": usuario.email, "correo_enviado": enviado,
                 "nombre": casa.responsable_actual.nombre_completo, "casa_id": casa.pk,
                 "placa": vehiculo.placa if vehiculo else "",
             }

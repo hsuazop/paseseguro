@@ -125,7 +125,7 @@ class RegistroPublicoTests(TestCase):
                 self.assertContains(pagina, "Llena tus datos y describe tu casa")
                 self.assertContains(pagina, "Es importante que escribas un correo que revises")
 
-    @patch("residentes.registro_publico.send_mail", side_effect=OSError)
+    @patch("residentes.services.send_mail", side_effect=OSError)
     def test_error_smtp_preserva_registro(self, enviar):
         respuesta = self.client.post(self.url, dict(self.datos, correo="ana@example.com"), follow=True)
         self.assertContains(respuesta, "el envío del correo falló")

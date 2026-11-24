@@ -103,7 +103,7 @@ class RegistrarResidenteForm(CamposBancariosForm):
     telefono = forms.CharField(label="Teléfono (opcional)", max_length=30, required=False)
     correo = forms.EmailField(
         label="Correo electrónico (opcional)", max_length=254, required=False,
-        help_text="Conviene pedir el correo para enviarle al residente sus recibos digitales. "
+        help_text="Si indica un correo, el residente recibirá allí sus credenciales y sus recibos digitales. "
                   "Con o sin correo, puede ingresar a la app con su usuario y contraseña.",
     )
     codigo_casa = forms.CharField(
