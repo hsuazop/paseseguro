@@ -8,6 +8,7 @@ from django.db import models
 from django.db.models import Q
 from django.utils import timezone
 
+from colonias.models import VILLA_OLIMPICA
 from core.models import TimeStampedModel
 from residentes.datos_pago import DatosBancariosPago
 
@@ -225,6 +226,12 @@ class Pago(TimeStampedModel):
 
     def __str__(self):
         return self.numero_recibo
+
+    @property
+    def sello_comite(self):
+        if self.colonia.nombre == VILLA_OLIMPICA:
+            return ("COMITÉ SEGURIDAD", "SECTOR 1", "COL. VILLA OLÍMPICA")
+        return None
 
     @property
     def canal_registro(self):

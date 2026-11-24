@@ -1,16 +1,32 @@
 from io import BytesIO
 from xml.sax.saxutils import escape
 
+from reportlab.graphics.shapes import Drawing, Group, Rect, String
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 
 def _moneda(valor):
     return f"L {valor:,.2f}"
+
+
+def _sello_comite(lineas):
+    tinta = colors.HexColor("#24486c")
+    dibujo = Drawing(124, 60)
+    dibujo.hAlign = "RIGHT"
+    sello = Group()
+    sello.translate(5, 3)
+    sello.rotate(3)
+    sello.add(Rect(0, 0, 112, 48, rx=6, ry=6, fillColor=None, strokeColor=tinta, strokeWidth=1.6))
+    for texto, altura, tamano in zip(lineas, (34, 18, 6), (9, 16, 9)):
+        sello.add(String(56, altura, texto, textAnchor="middle", fontName="Helvetica-Bold",
+                         fontSize=tamano, fillColor=tinta))
+    dibujo.add(sello)
+    return dibujo
 
 
 def generar_recibo_pdf(pago):
@@ -70,6 +86,10 @@ def generar_recibo_pdf(pago):
         ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"), ("FONTNAME", (2, 0), (2, -1), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 9), ("VALIGN", (0, 0), (-1, -1), "TOP"),
     ]))
-    story.extend([detalles, Spacer(1, 12 * mm), Paragraph(f"Documento generado por Residencial Segura<br/>{pago.token_publico}", styles["MutedCenter"])])
+    cierre = [detalles]
+    if pago.sello_comite:
+        cierre.extend([Spacer(1, 3 * mm), _sello_comite(pago.sello_comite)])
+    cierre.extend([Spacer(1, 12 * mm), Paragraph(f"Documento generado por Residencial Segura<br/>{pago.token_publico}", styles["MutedCenter"])])
+    story.append(KeepTogether(cierre))
     doc.build(story)
     return output.getvalue()

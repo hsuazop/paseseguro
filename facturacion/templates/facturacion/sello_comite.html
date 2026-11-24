@@ -1,0 +1,9 @@
+{% if pago.sello_comite %}
+<div style="text-align:right; margin:16px 6px 0; break-inside:avoid">
+  <div style="display:inline-block; transform:rotate(-3deg); border:2px solid currentColor; border-radius:9px; padding:7px 15px; color:#24486c; text-align:center; font:700 12px/1.15 'Arial Narrow',Arial,sans-serif; letter-spacing:.5px">
+    <div>{{ pago.sello_comite.0 }}</div>
+    <div style="font-size:24px; line-height:1.08; letter-spacing:1px">{{ pago.sello_comite.1 }}</div>
+    <div>{{ pago.sello_comite.2 }}</div>
+  </div>
+</div>
+{% endif %}
