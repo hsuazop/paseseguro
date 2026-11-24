@@ -428,13 +428,15 @@ class FinancialTestCase(TestCase):
         self.client.force_login(self.tesorero)
         url = reverse("registrar_residente")
         descripcion = "Villa Olímpica, bloque B, casa 12, frente a la cancha de fútbol y junto al portón azul."
-        datos = self.datos_residente(codigo_casa=descripcion.replace(", frente", ",\r\nfrente"))
+        datos = self.datos_residente(codigo_casa=descripcion.replace(", frente", ",\r\nfrente"), etapa_sector="3")
         form = self.client.get(url).context["form"]
         self.assertNotIn("monto_total", form.fields)
         self.assertNotIn("fecha_pago", form.fields)
         response = self.client.post(url, datos)
         self.assertFalse(Pago.objects.exists())
         vecino = Responsable.objects.get(identidad=datos["identidad"])
+        self.assertEqual(vecino.etapa_sector, 3)
+        self.assertContains(self.client.get(reverse("tesoreria_residentes")), "Etapa o sector 3")
         casa = Casa.objects.get(colonia=self.colonia, codigo=descripcion)
         self.assertEqual(casa.numero, descripcion)
         self.assertRedirects(response, f"{url}?alta={casa.pk}", fetch_redirect_response=False)
@@ -522,6 +524,7 @@ class FinancialTestCase(TestCase):
             alta = self.client.post(url, {"nombre_completo": "Ana Lopez", "codigo_casa": casa}, follow=True)
             vecino = Casa.objects.get(colonia=self.colonia, codigo=casa).responsable_actual
             self.assertIsNone(vecino.identidad)
+            self.assertEqual(vecino.etapa_sector, 1)
             self.assertIsNone(vecino.usuario.identidad)
             self.assertEqual((vecino.telefono, vecino.correo), ("", ""))
             self.assertContains(alta, vecino.usuario.username)

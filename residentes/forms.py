@@ -15,14 +15,27 @@ ETIQUETAS_CUENTA_PAGO = {
 }
 
 
-class ResponsableForm(forms.ModelForm):
+def campo_etapa_sector():
+    return forms.TypedChoiceField(label="Etapa o sector", choices=Responsable.ETAPAS_SECTORES,
+                                  coerce=int, required=False, initial=1, empty_value=1)
+
+
+class ResponsableAdminForm(forms.ModelForm):
+    etapa_sector = campo_etapa_sector()
+
+    class Meta:
+        model = Responsable
+        fields = "__all__"
+
+
+class ResponsableForm(ResponsableAdminForm):
     identidad = forms.CharField(label="Identidad", max_length=20)
     correo = forms.EmailField(label="Correo electrónico", max_length=254, help_text="Dirección donde se enviarán los recibos.")
     crear_usuario = forms.BooleanField(required=False, initial=True, label="Crear usuario residente")
 
     class Meta:
         model = Responsable
-        fields = ("nombre_completo", "identidad", "correo", "telefono", "banco", "numero_cuenta", "activo")
+        fields = ("nombre_completo", "identidad", "correo", "telefono", "etapa_sector", "banco", "numero_cuenta", "activo")
         labels = ETIQUETAS_CUENTA_PAGO
 
     def __init__(self, *args, **kwargs):
@@ -97,7 +110,8 @@ class PerfilResidenteForm(CamposBancariosForm):
 
 
 class RegistrarResidenteForm(CamposBancariosForm):
-    field_order = ("nombre_completo", "identidad", "telefono", "correo", "codigo_casa", "banco", "numero_cuenta")
+    field_order = ("nombre_completo", "identidad", "telefono", "correo", "codigo_casa", "etapa_sector", "banco", "numero_cuenta")
+    etapa_sector = campo_etapa_sector()
     nombre_completo = forms.CharField(label="Nombre completo", max_length=180)
     identidad = forms.CharField(label="Identidad (opcional)", max_length=20, required=False)
     telefono = forms.CharField(label="Teléfono (opcional)", max_length=30, required=False)

@@ -33,6 +33,7 @@ class RegistroPublicoTests(TestCase):
         respuesta = self.client.post(self.url, datos, follow=True)
         self.assertContains(respuesta, "Te has registrado exitosamente")
         item = RegistroPublico.objects.get()
+        self.assertEqual(item.responsable.etapa_sector, 1)
         self.assertEqual(item.colonia, self.villa)
         self.assertFalse(Casa.objects.exists())
         self.assertFalse(Vehiculo.objects.exists())
@@ -66,6 +67,16 @@ class RegistroPublicoTests(TestCase):
         self.assertNotContains(self.client.get(self.url), resultado["clave"])
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_etapa_sector_opcional_y_limitada_a_cinco_opciones(self):
+        pagina = self.client.get(self.url)
+        self.assertContains(pagina, '<option value="1" selected>Etapa o sector 1</option>', html=True)
+        for valor in ("0", "6", "texto"):
+            respuesta = self.client.post(self.url, dict(self.datos, etapa_sector=valor))
+            self.assertIn("etapa_sector", respuesta.context["form"].errors)
+        self.assertFalse(RegistroPublico.objects.exists())
+        self.client.post(self.url, dict(self.datos, etapa_sector=""))
+        self.assertEqual(RegistroPublico.objects.get().responsable.etapa_sector, 1)
+
     def test_alta_con_comprobante_y_revision_del_mes(self):
         url = reverse("registro_villa_con_comprobante")
         self.assertContains(self.client.get(url), 'enctype="multipart/form-data"')
@@ -73,7 +84,7 @@ class RegistroPublicoTests(TestCase):
         pagina = self.client.get(url)
         self.assertContains(pagina, 'name="banco"', count=1)
         self.assertContains(pagina, 'name="numero_cuenta"', count=1)
-        datos = {**self.datos, "banco": "BAC", "numero_cuenta": "001234567",
+        datos = {**self.datos, "etapa_sector": "5", "banco": "BAC", "numero_cuenta": "001234567",
                  "pago-anio": 2027, "pago-mes": 4, "pago-monto": "350.00",
                  "pago-metodo_pago": "TRANSFERENCIA"}
         for archivo in (None, SimpleUploadedFile("foto.png", b"invalido")):
@@ -87,6 +98,7 @@ class RegistroPublicoTests(TestCase):
             respuesta = self.client.post(url, datos, follow=True)
             self.assertContains(respuesta, "Recibimos tu comprobante")
             registro = RegistroPublico.objects.get()
+            self.assertEqual(registro.responsable.etapa_sector, 5)
             self.assertEqual((registro.responsable.banco, registro.responsable.numero_cuenta), ("BAC", "001234567"))
             registro.responsable.banco = "FICOHSA"
             registro.responsable.numero_cuenta = "000111"

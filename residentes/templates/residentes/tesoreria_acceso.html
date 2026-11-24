@@ -3,7 +3,7 @@
 {% block content %}
 <a href="{% url 'tesoreria_residentes' %}">Volver a residentes</a>
 <h1 class="page-title mt-3">{{ residente.nombre_completo }}</h1>
-<p class="page-subtitle">{{ colonia.nombre }}</p>
+<p class="page-subtitle">{{ colonia.nombre }} · {{ residente.get_etapa_sector_display }}</p>
 {% if resultado %}
   <div class="alert alert-info" role="status">
     {% if resultado.enviado %}<p>Las credenciales se enviaron a {{ resultado.correo }}.</p>

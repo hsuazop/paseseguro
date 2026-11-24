@@ -67,6 +67,7 @@ def inscribir(colonia, datos, vehiculo, comprobante=None):
     responsable = Responsable(
         nombre_completo=datos["nombre_completo"], identidad=datos["identidad"],
         telefono=datos["telefono"], correo=correo,
+        etapa_sector=datos.get("etapa_sector", 1),
         banco=datos["banco"], numero_cuenta=datos["numero_cuenta"],
     )
     responsable.full_clean()

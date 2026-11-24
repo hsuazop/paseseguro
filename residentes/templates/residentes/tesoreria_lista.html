@@ -17,6 +17,7 @@
       <tr>
         <td><strong>{{ persona.nombre_completo }}</strong>{% if persona.identidad %}<div class="small text-muted">{{ persona.identidad }}</div>{% endif %}</td>
         <td>{% for casa in persona.casas_locales %}<div>{{ casa.codigo }}</div>{% endfor %}
+          <div class="small text-muted">{{ persona.get_etapa_sector_display }}</div>
           {% if persona.registropublico.colonia_id == colonia.pk and not persona.registropublico.confirmado %}
             <div>{{ persona.registropublico.descripcion_casa }}</div><span class="badge text-bg-warning">Pendiente de confirmar</span>
           {% endif %}

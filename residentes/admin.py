@@ -1,5 +1,6 @@
 from django.contrib import admin
 from core.admin_utils import BaseAdmin, ReadOnlyAdmin
+from .forms import ResponsableAdminForm
 
 from .models import CasaResponsable, ComprobanteInscripcion, RegistroPublico, Responsable
 
@@ -19,12 +20,13 @@ class ComprobanteInscripcionAdmin(ReadOnlyAdmin):
 
 @admin.register(Responsable)
 class ResponsableAdmin(BaseAdmin):
-    list_display = ("nombre_completo", "identidad", "telefono", "correo", "usuario", "activo")
+    form = ResponsableAdminForm
+    list_display = ("nombre_completo", "etapa_sector", "identidad", "telefono", "correo", "usuario", "activo")
     search_fields = ("nombre_completo", "identidad", "telefono", "correo", "usuario__username")
     list_filter = ("activo",)
     autocomplete_fields = ("usuario", "creado_por")
     list_select_related = ("usuario",)
-    fieldsets = (("Datos personales", {"fields": ("nombre_completo", "identidad", "activo")}),
+    fieldsets = (("Datos personales", {"fields": ("nombre_completo", "identidad", "etapa_sector", "activo")}),
                  ("Contacto", {"fields": ("telefono", "correo")}),
                  ("Datos del pago", {"fields": ("banco", "numero_cuenta")}),
                  ("Cuenta y registro", {"fields": ("usuario", "creado_por", "created_at", "updated_at")}))

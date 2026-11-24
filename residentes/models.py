@@ -8,6 +8,8 @@ from .datos_pago import DatosBancariosPago
 
 
 class Responsable(DatosBancariosPago, TimeStampedModel):
+    ETAPAS_SECTORES = [(n, f"Etapa o sector {n}") for n in range(1, 6)]
+    etapa_sector = models.PositiveSmallIntegerField("Etapa o sector", choices=ETAPAS_SECTORES, default=1)
     nombre_completo = models.CharField(max_length=180)
     identidad = models.CharField(max_length=20, unique=True, blank=True, null=True)
     telefono = models.CharField(max_length=30, blank=True)
@@ -30,6 +32,9 @@ class Responsable(DatosBancariosPago, TimeStampedModel):
 
     class Meta:
         ordering = ("nombre_completo",)
+        constraints = [
+            models.CheckConstraint(condition=Q(etapa_sector__range=(1, 5)), name="responsable_etapa_sector_1_a_5"),
+        ]
 
     def save(self, *args, **kwargs):
         self.identidad = (self.identidad or "").strip() or None

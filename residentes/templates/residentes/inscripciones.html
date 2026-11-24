@@ -5,6 +5,7 @@
 {% for item in pendientes %}
 <div class="card mb-3"><div class="card-body">
   <h2 class="h5">{{ item.responsable.nombre_completo }}</h2>
+  <p>{{ item.responsable.get_etapa_sector_display }}</p>
   <p>{{ item.responsable.telefono }} {{ item.responsable.correo }}</p>
   {% if item.vehiculo %}<p>Vehículo declarado · {{ item.vehiculo.placa }}</p>{% endif %}
   {% if item.adjunto %}<p>Comprobante de vigilancia · {{ item.adjunto.mes }}/{{ item.adjunto.anio|stringformat:"d" }} · L {{ item.adjunto.monto }}</p>{% endif %}
