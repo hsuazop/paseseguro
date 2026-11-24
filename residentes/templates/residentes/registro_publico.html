@@ -29,7 +29,7 @@
   </header>
   <div class="card"><div class="card-body p-3 p-md-4">
   {% if resultado %}
-    {% if comprobante %}<p>Recibimos tu comprobante de vigilancia. Tesorería revisará el pago después de confirmar tu casa.</p>{% endif %}
+    {% if comprobante %}<p>Recibimos tu comprobante de vigilancia. Tesorería revisará el pago.</p>{% endif %}
     {% if resultado.enviado %}
       <p>Enviamos tu usuario y contraseña temporal a tu correo. Revisa también la carpeta de spam.</p>
     {% elif resultado.fallo_correo %}
@@ -38,7 +38,7 @@
       <p>Guarda estos datos para ingresar a la aplicación. La contraseña se muestra una sola vez.</p>
       <dl><dt>Usuario</dt><dd>{{ resultado.usuario }}</dd><dt>Contraseña temporal</dt><dd>{{ resultado.clave }}</dd></dl>
     {% endif %}
-    <p>La aplicación te pedirá cambiar la contraseña al primer ingreso. Tesorería confirmará tu casa para habilitar sus servicios.</p>
+    <p>Ya puedes ingresar al portal de Villa Olímpica. La aplicación te pedirá cambiar la contraseña al primer ingreso.</p>
     <a class="btn btn-primary" href="{% url 'login' %}">Ingresar a la aplicación</a>
   {% else %}
     <form method="post"{% if comprobante %} enctype="multipart/form-data"{% endif %}>{% csrf_token %}

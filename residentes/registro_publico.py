@@ -28,8 +28,7 @@ class FormularioPublico(RegistrarResidenteForm):
     correo = forms.EmailField(
         label="Correo electrónico (opcional)", max_length=150, required=False,
         help_text="Es importante que escribas un correo que revises. Allí recibirás tu contraseña temporal. "
-                  "Usa ese correo para ingresar al sistema y, cuando Tesorería confirme tu casa, "
-                  "podrás consultar tus recibos y crear pases de visita.",
+                  "Usa ese correo para ingresar al portal, enviar comprobantes y crear pases de visita.",
     )
 
     def __init__(self, *args, **kwargs):
@@ -40,7 +39,10 @@ class FormularioPublico(RegistrarResidenteForm):
         return self.cleaned_data["correo"].lower()
 
     def clean_codigo_casa(self):
-        return " ".join(self.cleaned_data["codigo_casa"].splitlines())
+        codigo = " ".join(self.cleaned_data["codigo_casa"].splitlines())
+        if Casa.objects.filter(colonia=self.colonia, codigo__iexact=codigo).exists():
+            raise forms.ValidationError("Esta casa ya está registrada. Verifica su descripción o contacta a Tesorería.")
+        return codigo
 
     def clean_identidad(self):
         return self.cleaned_data["identidad"] or None
@@ -81,7 +83,7 @@ def comprobante_pendiente(request, registro):
 
 @transaction.atomic
 def inscribir(colonia, datos, vehiculo, comprobante=None):
-    Colonia.objects.select_for_update().get(pk=colonia.pk, activa=True)
+    Colonia.objects.select_for_update().get(pk=colonia.pk, nombre=VILLA_OLIMPICA, activa=True)
     correo = datos["correo"]
     if correo and (User.objects.filter(username__iexact=correo).exists() or User.objects.filter(email__iexact=correo).exists()):
         raise ValidationError("Ya existe una cuenta con estos datos. Si necesitas ayuda para ingresar, contacta a Tesorería.")
@@ -96,9 +98,7 @@ def inscribir(colonia, datos, vehiculo, comprobante=None):
     usuario, clave = crear_usuario_residente(responsable, password=clave_temporal(), username=correo or None)
     registro = RegistroPublico.objects.create(colonia=colonia, responsable=responsable,
                                              descripcion_casa=datos["codigo_casa"], vehiculo=vehiculo)
-    if comprobante:
-        ComprobanteInscripcion.objects.create(registro=registro, banco=responsable.banco,
-                                              numero_cuenta=responsable.numero_cuenta, **comprobante)
+    activar_inscripcion(registro.pk, comprobante=comprobante)
     return usuario, clave
 
 
@@ -124,7 +124,7 @@ def registro_villa_olimpica(request, con_comprobante=False):
         else:
             if usuario.email:
                 enviado = enviar_credenciales_residente(
-                    usuario, clave, colonia, request.build_absolute_uri(reverse("login")), casa_pendiente=True,
+                    usuario, clave, colonia, request.build_absolute_uri(reverse("login")),
                 )
                 resultado = {"enviado": enviado, "fallo_correo": not enviado}
             else:
@@ -145,40 +145,59 @@ def inscripciones(request):
     return render(request, "residentes/inscripciones.html", {"pendientes": pendientes, "colonia": colonia})
 
 
+@transaction.atomic
+def activar_inscripcion(pk, *, comprobante=None, usuario_gestor=None, codigo_verificado=None):
+    item = RegistroPublico.objects.select_for_update().get(pk=pk)
+    if item.confirmado:
+        return
+    colonia = Colonia.objects.select_for_update().get(pk=item.colonia_id, activa=True)
+    responsable = item.responsable
+    actor = usuario_gestor or responsable.usuario
+    codigo = item.descripcion_casa if codigo_verificado is None else codigo_verificado.strip()
+    if not codigo or len(codigo) > 255:
+        raise ValidationError("Indica una descripción de casa de hasta 255 caracteres.")
+    if usuario_gestor is None:
+        if colonia.nombre != VILLA_OLIMPICA or Casa.objects.filter(colonia=colonia, codigo__iexact=codigo).exists():
+            raise ValidationError("No se puede dar de alta esta casa automáticamente.")
+        casa = Casa.objects.create(colonia=colonia, codigo=codigo, numero=codigo)
+    else:
+        casa, _ = Casa.objects.select_for_update().get_or_create(colonia=colonia, codigo=codigo, defaults={"numero": codigo})
+        if not casa.activa or casa.responsable_actual_id:
+            raise ValidationError("Esta casa ya tiene responsable o está inactiva.")
+    asignar_responsable(casa=casa, responsable=responsable, usuario=actor)
+    if item.vehiculo:
+        auto = Vehiculo(casa=casa, colonia=colonia, responsable=responsable, **item.vehiculo)
+        auto.full_clean()
+        auto.save()
+    if comprobante:
+        adjunto = ComprobanteInscripcion.objects.create(registro=item, banco=responsable.banco,
+                                                        numero_cuenta=responsable.numero_cuenta, **comprobante)
+    else:
+        adjunto = getattr(item, "adjunto", None)
+    if adjunto:
+        recibo = ComprobantePago.objects.create(
+            casa=casa, colonia=colonia, responsable=responsable, enviado_por=responsable.usuario,
+            archivo=adjunto.archivo.name, monto=adjunto.monto, metodo_pago=adjunto.metodo_pago,
+            banco=adjunto.banco, numero_cuenta=adjunto.numero_cuenta,
+            fecha_pago=timezone.localdate(adjunto.created_at), comentario=adjunto.comentario,
+            periodos_solicitados=[{"anio": adjunto.anio, "mes": adjunto.mes}],
+        )
+        registrar_auditoria(usuario=actor, accion="ENVIO_COMPROBANTE", objeto=recibo,
+                            descripcion="Comprobante recibido durante el registro público del residente.")
+    item.confirmado = True
+    item.save(update_fields=["confirmado", "updated_at"])
+    registrar_auditoria(usuario=actor, accion="CONFIRMAR_REGISTRO", objeto=item,
+                        descripcion="Activación de la casa desde el registro público." if usuario_gestor is None
+                                    else "Tesorería confirmó la casa del residente.")
+
+
 @roles_requeridos(*ROLES_FINANCIEROS)
 @require_POST
 def confirmar_inscripcion(request, pk):
     _, colonia = colonia_actual(request)
+    item = get_object_or_404(RegistroPublico, pk=pk, colonia=colonia, confirmado=False)
     try:
-        with transaction.atomic():
-            item = get_object_or_404(RegistroPublico.objects.select_for_update(), pk=pk, colonia=colonia, confirmado=False)
-            codigo = request.POST.get("codigo_casa", "").strip()
-            if not codigo or len(codigo) > 255:
-                raise ValidationError("Indica una descripción de casa de hasta 255 caracteres.")
-            Colonia.objects.select_for_update().get(pk=colonia.pk, activa=True)
-            casa, _ = Casa.objects.select_for_update().get_or_create(colonia=colonia, codigo=codigo, defaults={"numero": codigo})
-            if not casa.activa or casa.responsable_actual_id:
-                raise ValidationError("Esta casa ya tiene responsable o está inactiva.")
-            asignar_responsable(casa=casa, responsable=item.responsable, usuario=request.user)
-            if item.vehiculo:
-                auto = Vehiculo(casa=casa, colonia=colonia, responsable=item.responsable, **item.vehiculo)
-                auto.full_clean()
-                auto.save()
-            adjunto = getattr(item, "adjunto", None)
-            if adjunto:
-                recibo = ComprobantePago.objects.create(
-                    casa=casa, colonia=colonia, responsable=item.responsable, enviado_por=item.responsable.usuario,
-                    archivo=adjunto.archivo.name, monto=adjunto.monto, metodo_pago=adjunto.metodo_pago,
-                    banco=adjunto.banco, numero_cuenta=adjunto.numero_cuenta,
-                    fecha_pago=timezone.localdate(adjunto.created_at), comentario=adjunto.comentario,
-                    periodos_solicitados=[{"anio": adjunto.anio, "mes": adjunto.mes}],
-                )
-                registrar_auditoria(usuario=request.user, accion="ENVIO_COMPROBANTE", objeto=recibo,
-                                    descripcion="Comprobante recibido durante el registro público del residente.")
-            item.confirmado = True
-            item.save(update_fields=["confirmado", "updated_at"])
-            registrar_auditoria(usuario=request.user, accion="CONFIRMAR_REGISTRO", objeto=item,
-                                descripcion="Tesorería confirmó la casa de un residente inscrito en el formulario público.")
+        activar_inscripcion(item.pk, usuario_gestor=request.user, codigo_verificado=request.POST.get("codigo_casa", ""))
     except ValidationError as exc:
         messages.error(request, " ".join(exc.messages))
     except IntegrityError:

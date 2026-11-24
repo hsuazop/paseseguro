@@ -14,8 +14,8 @@ from accesos.models import Vehiculo
 from accounts.models import User, UsuarioColonia
 from colonias.models import Casa, Colonia
 from facturacion.models import ComprobantePago, Pago, TarifaColonia
-from .models import RegistroPublico
-from .registro_publico import VILLA_OLIMPICA
+from .models import ComprobanteInscripcion, RegistroPublico, Responsable
+from .registro_publico import VILLA_OLIMPICA, activar_inscripcion
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend", DEFAULT_FROM_EMAIL="avisos@example.com")
@@ -26,7 +26,7 @@ class RegistroPublicoTests(TestCase):
         self.url = reverse("registro_villa_olimpica")
         self.datos = {"nombre_completo": "Ana López", "codigo_casa": "Bloque A, casa 8"}
 
-    def test_publico_correo_acceso_y_confirmacion(self):
+    def test_publico_correo_acceso_y_alta_inmediata(self):
         self.assertContains(self.client.get(self.url), self.villa.nombre)
         datos = dict(self.datos, correo="Ana@Example.com", colonia=self.otra.pk, rol="ADMINISTRADOR",
                      agregar_vehiculo="1", **{"vehiculo-placa": "abc 123", "vehiculo-tipo": "AUTOMOVIL"})
@@ -35,8 +35,9 @@ class RegistroPublicoTests(TestCase):
         item = RegistroPublico.objects.get()
         self.assertEqual(item.responsable.etapa_sector, 1)
         self.assertEqual(item.colonia, self.villa)
-        self.assertFalse(Casa.objects.exists())
-        self.assertFalse(Vehiculo.objects.exists())
+        self.assertTrue(item.confirmado)
+        casa = Casa.objects.get(colonia=self.villa, responsable_actual=item.responsable)
+        self.assertEqual(Vehiculo.objects.get(casa=casa).placa, "ABC123")
         self.assertEqual(len(mail.outbox), 1)
         mensaje = mail.outbox[0]
         self.assertEqual(mensaje.to, ["ana@example.com"])
@@ -48,17 +49,10 @@ class RegistroPublicoTests(TestCase):
         self.client.post(self.url, datos)
         self.assertEqual(RegistroPublico.objects.count(), 1)
         self.assertEqual(len(mail.outbox), 1)
-        tesorero = User.objects.create_user("tesorero", rol=User.Rol.TESORERO)
-        asignacion = UsuarioColonia.objects.create(usuario=tesorero, colonia=self.otra)
-        self.client.force_login(tesorero)
-        confirmar = reverse("confirmar_inscripcion", args=[item.pk])
-        self.assertEqual(self.client.post(confirmar, self.datos).status_code, 404)
-        asignacion.colonia = self.villa
-        asignacion.save()
-        self.client.post(confirmar, self.datos)
-        casa = Casa.objects.get()
         self.assertEqual(casa.responsable_actual.usuario, usuario)
-        self.assertEqual(Vehiculo.objects.get(casa=casa).placa, "ABC123")
+        duplicado = self.client.post(self.url, dict(self.datos, correo="otra@example.com", codigo_casa=casa.codigo.lower()))
+        self.assertIn("codigo_casa", duplicado.context["form"].errors)
+        self.assertFalse(User.objects.filter(email="otra@example.com").exists())
 
     def test_sin_correo_muestra_credenciales_una_vez(self):
         respuesta = self.client.post(self.url, self.datos, follow=True)
@@ -67,7 +61,7 @@ class RegistroPublicoTests(TestCase):
         self.assertNotContains(self.client.get(self.url), resultado["clave"])
         self.assertEqual(len(mail.outbox), 0)
 
-    def test_primer_ingreso_al_portal_sin_casa_confirmada(self):
+    def test_primer_ingreso_directo_al_portal_completo(self):
         self.client.post(self.url, dict(self.datos, correo="ana@example.com"))
         registro = RegistroPublico.objects.get()
         usuario = registro.responsable.usuario
@@ -77,37 +71,31 @@ class RegistroPublicoTests(TestCase):
         inicio = self.client.post(reverse("cambiar_password_obligatorio"), {
             "old_password": temporal, "new_password1": nueva, "new_password2": nueva,
         }, follow=True)
-        self.assertEqual(inicio.request["PATH_INFO"], reverse("portal_inscripcion"))
-        for ruta in ("comprobante_inscripcion", "perfil_inscripcion", "estado_inscripcion"):
-            self.assertContains(inicio, f'href="{reverse(ruta)}"')
-            self.assertEqual(self.client.get(reverse(ruta)).status_code, 200)
-        self.assertNotContains(inicio, "Tu cuenta está al día")
-        perfil = self.client.post(reverse("perfil_inscripcion"), {
+        casa = Casa.objects.get(responsable_actual=registro.responsable)
+        self.assertEqual(inicio.request["PATH_INFO"], reverse("portal_residente", args=[casa.pk]))
+        for ruta in ("comprobante_enviar", "configurar_perfil", "mi_cuenta_casa", "visita_crear"):
+            self.assertContains(inicio, f'href="{reverse(ruta, args=[casa.pk])}"')
+        self.assertNotContains(inicio, "confirmando tu casa")
+        perfil = self.client.post(reverse("configurar_perfil", args=[casa.pk]), {
             "nombre": "Ana", "apellido": "López", "correo": "ana@example.com", "telefono": "99887766",
         }, follow=True)
         self.assertContains(perfil, "Tu información fue actualizada")
         otro = Casa.objects.create(colonia=self.villa, codigo="Otra casa")
         self.assertEqual(self.client.get(reverse("portal_residente", args=[otro.pk])).status_code, 404)
-        with TemporaryDirectory() as carpeta, self.settings(MEDIA_ROOT=carpeta):
-            imagen = BytesIO()
-            Image.new("RGB", (12, 12)).save(imagen, format="PNG")
-            def subir():
-                return self.client.post(reverse("comprobante_inscripcion"), {
-                    "anio": 2026, "mes": 11, "monto": "350", "metodo_pago": "TRANSFERENCIA",
-                    "archivo": SimpleUploadedFile("pago.png", imagen.getvalue(), content_type="image/png"),
-                }, follow=True)
-            self.assertContains(subir(), "Comprobante recibido")
-            self.assertContains(subir(), "Pendiente de revisión")
-            self.assertFalse(ComprobantePago.objects.exists())
-            tesorero = User.objects.create_user("tesorero", rol=User.Rol.TESORERO)
-            UsuarioColonia.objects.create(usuario=tesorero, colonia=self.villa)
-            self.client.force_login(tesorero)
-            self.client.post(reverse("confirmar_inscripcion", args=[registro.pk]), self.datos)
-            casa = Casa.objects.get(responsable_actual=registro.responsable)
-            self.assertEqual(ComprobantePago.objects.get().casa, casa)
-            usuario.refresh_from_db()
-            self.client.force_login(usuario)
-            self.assertRedirects(self.client.get(reverse("mi_cuenta")), reverse("portal_residente", args=[casa.pk]))
+
+    def test_activar_registro_anterior_una_vez_con_su_comprobante(self):
+        usuario = User.objects.create_user("residente-anterior")
+        vecino = Responsable.objects.create(nombre_completo="Vecino anterior", usuario=usuario)
+        registro = RegistroPublico.objects.create(colonia=self.villa, responsable=vecino, descripcion_casa="B-12")
+        adjunto = ComprobanteInscripcion.objects.create(registro=registro, archivo="comprobantes/anterior.png",
+                                                       anio=2026, mes=11, monto=350, metodo_pago="TRANSFERENCIA")
+        activar_inscripcion(registro.pk)
+        activar_inscripcion(registro.pk)
+        casa = Casa.objects.get(responsable_actual=vecino)
+        self.assertEqual(casa.historial_responsables.count(), 1)
+        comprobante = ComprobantePago.objects.get()
+        self.assertEqual((comprobante.casa, comprobante.archivo.name), (casa, adjunto.archivo.name))
+        self.assertEqual(comprobante.estado, ComprobantePago.Estado.PENDIENTE)
 
     def test_etapa_sector_opcional_y_limitada_a_cinco_opciones(self):
         pagina = self.client.get(self.url)
@@ -147,11 +135,10 @@ class RegistroPublicoTests(TestCase):
             registro.responsable.save()
             self.assertEqual(registro.adjunto.archivo.read(), imagen.getvalue())
             registro.adjunto.archivo.close()
-            self.assertFalse(ComprobantePago.objects.exists())
+            self.assertTrue(registro.confirmado)
             tesorero = User.objects.create_user("tesorero", rol=User.Rol.TESORERO)
             UsuarioColonia.objects.create(usuario=tesorero, colonia=self.villa)
             self.client.force_login(tesorero)
-            self.client.post(reverse("confirmar_inscripcion", args=[registro.pk]), self.datos)
             item = ComprobantePago.objects.get()
             self.assertEqual((item.banco, item.numero_cuenta), ("BAC", "001234567"))
             self.assertEqual(item.estado, ComprobantePago.Estado.PENDIENTE)
