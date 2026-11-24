@@ -58,6 +58,27 @@ class ComprobantePublicoForm(DatosComprobanteForm):
         return validar_adjunto(self.cleaned_data["archivo"])
 
 
+def comprobante_pendiente(request, registro):
+    form = ComprobantePublicoForm(request.POST if request.method == "POST" else None, request.FILES or None)
+    if request.method == "POST" and form.is_valid():
+        try:
+            with transaction.atomic():
+                actual = RegistroPublico.objects.select_for_update().get(pk=registro.pk, responsable__usuario=request.user)
+                if actual.confirmado:
+                    messages.info(request, "Tu casa ya fue confirmada. Envía el comprobante desde tu portal.")
+                    return redirect("mi_cuenta")
+                if not ComprobanteInscripcion.objects.filter(registro=actual).exists():
+                    responsable = actual.responsable
+                    ComprobanteInscripcion.objects.create(registro=actual, banco=responsable.banco,
+                                                         numero_cuenta=responsable.numero_cuenta, **form.cleaned_data)
+        except OSError:
+            form.add_error("archivo", "No se pudo guardar el archivo. Vuelve a adjuntarlo.")
+        else:
+            messages.success(request, "Tu comprobante quedó pendiente de revisión.")
+            return redirect("estado_inscripcion")
+    return render(request, "portal/comprobante_inscripcion.html", {"registro": registro, "form": form})
+
+
 @transaction.atomic
 def inscribir(colonia, datos, vehiculo, comprobante=None):
     Colonia.objects.select_for_update().get(pk=colonia.pk, activa=True)

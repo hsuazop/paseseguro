@@ -1,0 +1,17 @@
+{% extends 'portal/base_portal.html' %}
+{% block title %}Enviar comprobante{% endblock %}
+{% block content %}
+<div class="resident-page-head"><a href="{{ url_inicio }}" aria-label="Inicio"><i class="bi bi-arrow-left"></i></a><div><h1>Enviar comprobante</h1><p>{{ registro.colonia.nombre }}</p></div></div>
+<section class="resident-card">
+{% if registro.adjunto %}
+  <p>Ya recibimos tu comprobante. Tesorería lo revisará cuando confirme tu casa.</p>
+  <a class="btn btn-outline-primary" href="{{ url_estado }}">Ver estado de cuenta</a>
+{% else %}
+  <p>Selecciona el mes que pagaste y adjunta la foto o el PDF del depósito.</p>
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    {% for field in form %}<div class="mb-3">{{ field.label_tag }}{{ field }}{{ field.errors }}{% if field.help_text %}<div class="form-text">{{ field.help_text }}</div>{% endif %}</div>{% endfor %}
+    <button class="btn btn-primary w-100">Enviar comprobante</button>
+  </form>
+{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends 'portal/base_portal.html' %}{% load app_tags %}
+{% block title %}Estado de cuenta{% endblock %}
+{% block content %}
+<div class="resident-page-head"><a href="{{ url_inicio }}" aria-label="Inicio"><i class="bi bi-arrow-left"></i></a><div><h1>Estado de cuenta</h1><p>{{ registro.colonia.nombre }} · {{ registro.descripcion_casa }}</p></div></div>
+<section class="resident-card">
+  <p>Podrás consultar tus cuotas y saldos cuando Tesorería confirme tu casa.</p>
+  {% if registro.adjunto %}
+    <h2 class="h5">Comprobante recibido</h2>
+    <p>{{ registro.adjunto.mes|nombre_mes }} {{ registro.adjunto.anio|stringformat:"d" }} · {{ registro.adjunto.monto|moneda }}</p>
+    <span class="badge text-bg-warning">Pendiente de revisión</span>
+  {% else %}
+    <p>Aún no has enviado un comprobante.</p>
+    <a class="btn btn-primary" href="{{ url_comprobante }}">Enviar comprobante</a>
+  {% endif %}
+</section>
+{% endblock %}

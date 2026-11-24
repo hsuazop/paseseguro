@@ -18,7 +18,7 @@ from core.pagination import paginar
 
 from .access import casa_del_residente, responsable_del_usuario
 from .forms import PerfilResidenteForm, ResponsableForm
-from .models import Responsable
+from .models import RegistroPublico, Responsable
 from .services import crear_usuario_residente
 
 
@@ -95,10 +95,33 @@ def mi_cuenta(request):
     if len(resumen) == 1:
         return redirect("portal_residente", casa_id=resumen[0]["casa"].pk)
     registro = getattr(responsable, "registropublico", None)
+    if not resumen and registro and not registro.confirmado and registro.colonia.activa:
+        return redirect("portal_inscripcion")
     colonia = casas[0].colonia if resumen else (registro.colonia if registro and not registro.confirmado else None)
     return render(request, "residentes/mi_cuenta.html", {
         "responsable": responsable, "propiedades": resumen, "cuentas_vigilancia": _cuentas_para_vigilancia(responsable, colonia),
     })
+
+
+@login_required
+def portal_inscripcion(request, seccion="inicio"):
+    if request.user.rol != User.Rol.RESIDENTE:
+        raise PermissionDenied
+    responsable = _responsable_actual(request.user)
+    registro = RegistroPublico.objects.filter(
+        responsable=responsable, confirmado=False, colonia__activa=True,
+    ).select_related("colonia", "adjunto").first()
+    if not registro:
+        return redirect("mi_cuenta")
+    if seccion == "perfil":
+        return _perfil(request, responsable, registro=registro)
+    if seccion == "comprobante":
+        from .registro_publico import comprobante_pendiente
+        return comprobante_pendiente(request, registro)
+    contexto = {"registro": registro, "responsable": responsable,
+                "cuentas_vigilancia": _cuentas_para_vigilancia(responsable, registro.colonia)}
+    plantilla = "portal/inicio.html" if seccion == "inicio" else "portal/estado_inscripcion.html"
+    return render(request, plantilla, contexto)
 
 
 def mi_cuenta_casa(request, casa_id):
@@ -187,7 +210,10 @@ def configurar_perfil(request, casa_id):
     if request.user.rol != User.Rol.RESIDENTE and not request.user.es_superadmin:
         raise PermissionDenied
     casa = _casa_residente(request.user, casa_id)
-    responsable = _responsable_actual(request.user)
+    return _perfil(request, _responsable_actual(request.user), casa=casa)
+
+
+def _perfil(request, responsable, *, casa=None, registro=None):
     form = PerfilResidenteForm(
         request.POST or None,
         usuario=request.user,
@@ -212,5 +238,7 @@ def configurar_perfil(request, casa_id):
         if nueva:
             update_session_auth_hash(request, request.user)
         messages.success(request, "Tu información fue actualizada.")
+        if registro:
+            return redirect("perfil_inscripcion")
         return redirect("configurar_perfil", casa_id=casa.pk)
-    return render(request, "portal/configuracion.html", {"casa": casa, "form": form})
+    return render(request, "portal/configuracion.html", {"casa": casa, "registro": registro, "form": form})

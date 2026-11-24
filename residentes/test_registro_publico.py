@@ -67,6 +67,48 @@ class RegistroPublicoTests(TestCase):
         self.assertNotContains(self.client.get(self.url), resultado["clave"])
         self.assertEqual(len(mail.outbox), 0)
 
+    def test_primer_ingreso_al_portal_sin_casa_confirmada(self):
+        self.client.post(self.url, dict(self.datos, correo="ana@example.com"))
+        registro = RegistroPublico.objects.get()
+        usuario = registro.responsable.usuario
+        temporal = mail.outbox[0].body.split("Contraseña temporal: ")[1].splitlines()[0]
+        self.client.post(reverse("login"), {"username": usuario.username, "password": temporal})
+        nueva = "PruebaDeIngreso824!"
+        inicio = self.client.post(reverse("cambiar_password_obligatorio"), {
+            "old_password": temporal, "new_password1": nueva, "new_password2": nueva,
+        }, follow=True)
+        self.assertEqual(inicio.request["PATH_INFO"], reverse("portal_inscripcion"))
+        for ruta in ("comprobante_inscripcion", "perfil_inscripcion", "estado_inscripcion"):
+            self.assertContains(inicio, f'href="{reverse(ruta)}"')
+            self.assertEqual(self.client.get(reverse(ruta)).status_code, 200)
+        self.assertNotContains(inicio, "Tu cuenta está al día")
+        perfil = self.client.post(reverse("perfil_inscripcion"), {
+            "nombre": "Ana", "apellido": "López", "correo": "ana@example.com", "telefono": "99887766",
+        }, follow=True)
+        self.assertContains(perfil, "Tu información fue actualizada")
+        otro = Casa.objects.create(colonia=self.villa, codigo="Otra casa")
+        self.assertEqual(self.client.get(reverse("portal_residente", args=[otro.pk])).status_code, 404)
+        with TemporaryDirectory() as carpeta, self.settings(MEDIA_ROOT=carpeta):
+            imagen = BytesIO()
+            Image.new("RGB", (12, 12)).save(imagen, format="PNG")
+            def subir():
+                return self.client.post(reverse("comprobante_inscripcion"), {
+                    "anio": 2026, "mes": 11, "monto": "350", "metodo_pago": "TRANSFERENCIA",
+                    "archivo": SimpleUploadedFile("pago.png", imagen.getvalue(), content_type="image/png"),
+                }, follow=True)
+            self.assertContains(subir(), "Comprobante recibido")
+            self.assertContains(subir(), "Pendiente de revisión")
+            self.assertFalse(ComprobantePago.objects.exists())
+            tesorero = User.objects.create_user("tesorero", rol=User.Rol.TESORERO)
+            UsuarioColonia.objects.create(usuario=tesorero, colonia=self.villa)
+            self.client.force_login(tesorero)
+            self.client.post(reverse("confirmar_inscripcion", args=[registro.pk]), self.datos)
+            casa = Casa.objects.get(responsable_actual=registro.responsable)
+            self.assertEqual(ComprobantePago.objects.get().casa, casa)
+            usuario.refresh_from_db()
+            self.client.force_login(usuario)
+            self.assertRedirects(self.client.get(reverse("mi_cuenta")), reverse("portal_residente", args=[casa.pk]))
+
     def test_etapa_sector_opcional_y_limitada_a_cinco_opciones(self):
         pagina = self.client.get(self.url)
         self.assertContains(pagina, '<option value="1" selected>Etapa o sector 1</option>', html=True)
