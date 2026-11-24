@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Acceso del residente | Residencial Segura{% endblock %}
+{% block content %}
+<a href="{% url 'tesoreria_residentes' %}">Volver a residentes</a>
+<h1 class="page-title mt-3">{{ residente.nombre_completo }}</h1>
+<p class="page-subtitle">{{ colonia.nombre }}</p>
+{% if resultado %}
+  <div class="alert alert-info" role="status">
+    {% if resultado.enviado %}<p>Las credenciales se enviaron a {{ resultado.correo }}.</p>
+    {% elif resultado.correo %}<p>Falló el envío a {{ resultado.correo }}. Entregue estos datos al residente.</p>
+    {% else %}<p>Entregue estos datos al residente.</p>{% endif %}
+    <div>Usuario: <strong>{{ resultado.usuario }}</strong></div>
+    <div>Contraseña temporal: <strong>{{ resultado.clave }}</strong></div>
+    <small>La contraseña se muestra una sola vez.</small>
+  </div>
+{% endif %}
+<div class="card"><div class="card-body">
+  {% if editable %}
+    <h2 class="h5">Correo del residente</h2>
+    <form method="post" class="mb-4">{% csrf_token %}
+      <input type="hidden" name="accion" value="correo"><input type="hidden" name="version" value="{{ version }}">
+      {{ form.correo.label_tag }}{{ form.correo }}{{ form.correo.errors }}
+      {% if '@' in residente.usuario.username %}<div class="form-text">Al guardar, el nuevo correo también será su usuario para ingresar.</div>{% endif %}
+      <button class="btn btn-primary mt-2">Guardar correo</button>
+    </form>
+    <h2 class="h5">Acceso a la app</h2>
+    {% if residente.usuario_id %}<p>Usuario: <strong>{{ residente.usuario.username }}</strong></p>{% endif %}
+    <p>Se generará una contraseña temporal que el residente deberá cambiar al ingresar.{% if residente.usuario.email or not residente.usuario_id and residente.correo %} También la recibirá por correo.{% endif %}</p>
+    <form method="post">{% csrf_token %}
+      <input type="hidden" name="accion" value="clave"><input type="hidden" name="version" value="{{ version }}">
+      <button class="btn btn-outline-primary">{% if residente.usuario_id %}Restablecer contraseña{% else %}Crear acceso{% endif %}</button>
+    </form>
+  {% else %}
+    <p class="mb-0">Esta cuenta requiere que Administración gestione su acceso.</p>
+  {% endif %}
+</div></div>
+{% endblock %}

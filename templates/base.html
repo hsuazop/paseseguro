@@ -41,6 +41,7 @@
         <a class="nav-link" href="{% url 'pago_efectivo' %}"><i class="bi bi-cash-coin"></i> Registrar efectivo</a>
         <a class="nav-link" href="{% url 'comprobante_tesoreria' %}"><i class="bi bi-file-earmark-arrow-up"></i> Registrar comprobante</a>
         <a class="nav-link" href="{% url 'registrar_residente' %}"><i class="bi bi-person-plus"></i> Registrar Residente</a>
+        <a class="nav-link" href="{% url 'tesoreria_residentes' %}"><i class="bi bi-people"></i> Residentes</a>
         <a class="nav-link" href="{% url 'tesoreria' %}"><i class="bi bi-calendar-check"></i> Vigilancia del mes</a>
         {% if not ocultar_listado_pagos %}<a class="nav-link" href="{% url 'pagos_lista' %}"><i class="bi bi-cash-coin"></i> Pagos</a>{% endif %}
         <a class="nav-link" href="{% url 'gastos_lista' %}"><i class="bi bi-receipt"></i> Gastos mensuales</a>

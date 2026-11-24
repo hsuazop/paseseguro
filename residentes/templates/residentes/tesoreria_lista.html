@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block title %}Residentes | Residencial Segura{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-4">
+  <div><h1 class="page-title">Residentes</h1><p class="page-subtitle">{{ colonia.nombre|default:"Sin residencial asignada" }}</p></div>
+  {% if colonia %}<a class="btn btn-primary" href="{% url 'registrar_residente' %}">Registrar residente</a>{% endif %}
+</div>
+<form method="get" class="mb-3">
+  <label class="form-label" for="buscar">Buscar por nombre, casa, identidad, teléfono o correo</label>
+  <div class="input-group"><input class="form-control" type="search" id="buscar" name="q" value="{{ buscar }}"><button class="btn btn-outline-primary">Buscar</button></div>
+</form>
+<p class="small text-muted">{{ page_obj.paginator.count }} residente{{ page_obj.paginator.count|pluralize:"s" }}</p>
+<div class="card"><div class="table-responsive">
+  <table data-mobile-cards class="table align-middle mb-0">
+    <thead><tr><th>Nombre</th><th>Casa</th><th>Teléfono</th><th>Correo electrónico</th><th>Acceso</th></tr></thead>
+    <tbody>{% for persona in page_obj %}
+      <tr>
+        <td><strong>{{ persona.nombre_completo }}</strong>{% if persona.identidad %}<div class="small text-muted">{{ persona.identidad }}</div>{% endif %}</td>
+        <td>{% for casa in persona.casas_locales %}<div>{{ casa.codigo }}</div>{% endfor %}
+          {% if persona.registropublico.colonia_id == colonia.pk and not persona.registropublico.confirmado %}
+            <div>{{ persona.registropublico.descripcion_casa }}</div><span class="badge text-bg-warning">Pendiente de confirmar</span>
+          {% endif %}
+        </td>
+        <td>{{ persona.telefono|default:"—" }}</td><td class="text-break">{{ persona.correo|default:"—" }}</td>
+        <td><a class="btn btn-sm btn-outline-primary" href="{% url 'tesoreria_residente_acceso' persona.pk %}">Ver acceso</a></td>
+      </tr>
+    {% empty %}<tr><td colspan="5" class="text-center py-4">No se encontraron residentes.</td></tr>{% endfor %}</tbody>
+  </table>
+</div></div>
+{% include 'components/pagination.html' %}
+{% endblock %}

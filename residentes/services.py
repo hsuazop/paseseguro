@@ -44,9 +44,11 @@ def crear_usuario_residente(responsable, password=None, *, username=None):
     return usuario, password
 
 
-def enviar_credenciales_residente(usuario, clave, colonia, enlace, *, casa_pendiente=False):
+def enviar_credenciales_residente(usuario, clave, colonia, enlace, *, casa_pendiente=False, restablecida=False):
+    aviso = (f"Tesorería generó una nueva contraseña para tu acceso a {colonia.nombre}."
+             if restablecida else f"Te has registrado exitosamente en {colonia.nombre}.")
     cuerpo = (
-        f"Hola, {usuario.nombre_completo}.\n\nTe has registrado exitosamente en {colonia.nombre}.\n"
+        f"Hola, {usuario.nombre_completo}.\n\n{aviso}\n"
         f"Usuario: {usuario.username}\nContraseña temporal: {clave}\nIngreso: {enlace}\n\n"
         "Cambia tu contraseña al primer ingreso."
     )

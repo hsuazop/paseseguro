@@ -28,7 +28,7 @@ from facturacion import views as factura_views
 from facturacion import gastos_views
 from reportes import views as reporte_views
 from residentes import views as residente_views
-from residentes import registro_publico
+from residentes import registro_publico, tesoreria as tesoreria_residentes
 
 urlpatterns = [
     path('registro/villa-olimpica/', registro_publico.registro_villa_olimpica, name='registro_villa_olimpica'),
@@ -50,6 +50,8 @@ urlpatterns = [
     path('dashboard/', core_views.dashboard, name='dashboard'),
     path('dashboard/financiero/', core_views.dashboard_financiero, name='dashboard_financiero'),
     path('tesoreria/', factura_views.tesoreria, name='tesoreria'),
+    path('tesoreria/residentes/', tesoreria_residentes.lista, name='tesoreria_residentes'),
+    path('tesoreria/residentes/<int:pk>/acceso/', tesoreria_residentes.acceso, name='tesoreria_residente_acceso'),
     path('tesoreria/residentes/registrar/', factura_views.registrar_residente, name='registrar_residente'),
     path('tesoreria/efectivo/', factura_views.pago_efectivo, name='pago_efectivo'),
     path('tesoreria/comprobantes/registrar/', factura_views.comprobante_tesoreria, name='comprobante_tesoreria'),

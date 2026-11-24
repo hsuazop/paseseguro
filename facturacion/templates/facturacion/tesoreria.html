@@ -8,6 +8,7 @@
     {% if colonia %}<a class="btn btn-primary" href="{% url 'pago_efectivo' %}?mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar efectivo</a>
     <a class="btn btn-outline-primary" href="{% url 'comprobante_tesoreria' %}?mes={{ mes|unlocalize }}&anio={{ anio|unlocalize }}">Registrar comprobante</a>
     <a class="btn btn-outline-primary" href="{% url 'registrar_residente' %}">Registrar Residente</a>
+    <a class="btn btn-outline-primary" href="{% url 'tesoreria_residentes' %}">Ver residentes</a>
     {% if colonia.nombre == 'Residencial Villa Olímpica' %}<a class="btn btn-outline-secondary" href="{% url 'inscripciones_publicas' %}">Confirmar registros públicos</a>{% endif %}{% endif %}
     <a class="btn btn-outline-primary" href="{% url 'comprobantes_gestion' %}?estado=PENDIENTE">Ver comprobantes pendientes</a>
   </div>
